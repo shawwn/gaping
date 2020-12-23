@@ -133,8 +133,9 @@ def _parse_topology(orig, cls, self, serialized):
 
     self._mesh_shape = np.array(proto.mesh_shape, dtype=np.int32)
     if len(self._mesh_shape) != 4 or any(self._mesh_shape < 1):
-      raise ValueError("`mesh_shape` must be a vector of size 4 with positive "
-                       "entries; got {}".format(self._mesh_shape))
+      # raise ValueError("`mesh_shape` must be a vector of size 4 with positive "
+      #                  "entries; got {}".format(self._mesh_shape))
+      return orig(self, serialized)
 
     if proto.num_tasks < 0:
       raise ValueError("`num_tasks` must be >= 0; got {}".format(
