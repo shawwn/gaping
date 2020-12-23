@@ -23,7 +23,7 @@ from tensorflow.python.eager import context
 from tensorflow.python import framework
 from tensorflow.python.client import session
 from tensorflow.python.distribute.cluster_resolver import tpu_cluster_resolver as resolver
-from tensorflow.compat.v1.distribute.cluster_resolver import TPUClusterResolver as BaseTPUClusterResolver
+from tensorflow.compat.v1.distribute.cluster_resolver import TPUClusterResolver
 from tensorflow.python.eager.context import LogicalDevice
 from tensorflow.python.framework import errors
 from tensorflow.python.framework import test_util
@@ -69,41 +69,6 @@ def reroute(addr, host=None):
   return host + ':' + str(port)
 
 
-class TPUClusterResolver(BaseTPUClusterResolver):
-  def __init__(self, *args, host=None, node_count=None, node_offset=None, **kws):
-    kws['project'] = kws.pop('project', 'gpt-2-15b-poetry')
-    super(TPUClusterResolver, self).__init__(*args, **kws)
-    if host is None:
-      host = _tpu_host()
-    self._host = host
-    if node_count is None:
-      if 'TPU_NODE_COUNT' in os.environ:
-        node_count = int(os.environ['TPU_NODE_COUNT'])
-    self._node_count = node_count
-    if node_offset is None:
-      if 'TPU_NODE_OFFSET' in os.environ:
-        node_offset = int(os.environ['TPU_NODE_OFFSET'])
-    self._node_offset = node_offset
-
-  def master(self, *args, **kws):
-    ip = super(TPUClusterResolver, self).master(*args, **kws)
-    return reroute(ip, host=self._host)
-
-  def cluster_spec(self):
-    spec = super(TPUClusterResolver, self).cluster_spec()
-    r = dict()
-    for k, v in spec.as_dict().items():
-      r[k] = [reroute(ip, host=self._host) for ip in v]
-    #k = 'worker'
-    i = self._node_count or len(r[k])
-    j = self._node_offset or 0
-    for k, v in r.items():
-      r[k] = [r[k][0]] + r[k][(j+1):(j+1)+(i-1)]
-    spec2 = server_lib.ClusterSpec(r)
-    print(spec2.as_cluster_def())
-    return spec2
-
-
 def _tpu_host():
   return os.environ.get('TPU_HOST', None)
 
@@ -112,7 +77,7 @@ from collections import OrderedDict
 
 mocks = {}
 
-def mock_method(unique_name, cls, name=None):
+def mock_method(unique_name, cls, name=None, doc=None):
   if name is None:
     name = fn.__name__
   wrapped = getattr(cls, name)
@@ -127,6 +92,12 @@ def mock_method(unique_name, cls, name=None):
 def activate_mocks(exit_stack):
   for creator in mocks.values():
     exit_stack.enter_context(creator())
+
+@mock_method('patch_resolver_auto_tpu', resolver.TPUClusterResolver, '__init__')
+def resolver__init__(orig, cls, self, tpu=None, *args, **kws):
+  if tpu is None:
+    tpu = os.environ.get('TPU_NAME')
+  return orig(self, tpu, *args, **kws)
 
 @mock_method('patch_resolver_master', resolver.TPUClusterResolver, 'master')
 def _master(orig, cls, self, *args, **kws):
@@ -324,7 +295,7 @@ if __name__ == '__main__':
     master_job = 'worker'
     try:
       if 'TPU_NAME' in os.environ:
-        res = TPUClusterResolver(os.environ['TPU_NAME'])
+        res = TPUClusterResolver()
         master = res.get_master()
         cluster_spec = res.cluster_spec()
         if cluster_spec:
