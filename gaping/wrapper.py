@@ -5,7 +5,7 @@ from __future__ import print_function
 
 from pprint import pprint as pp
 from pprint import pformat as pf
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 
 import sys
 import os
@@ -195,13 +195,14 @@ def _invert_topology(self):
 def patch_tensorflow():
   tf.compat.v1.disable_eager_execution()
   tf.compat.v1.logging.set_verbosity('DEBUG')
-  with mock.patch.object(resolver.TPUClusterResolver, 'master', mock_master):
-    with mock.patch.object(resolver.TPUClusterResolver, 'cluster_spec', cluster_spec):
-      with mock.patch.object(client.Client if client is not None else resolver.TPUClusterResolver, '_fetch_cloud_tpu_metadata', _fetch_cloud_tpu_metadata):
-        with mock.patch.object(topology_lib.Topology, '_parse_topology', _parse_topology):
-          with mock.patch.object(topology_lib.Topology, '_invert_topology', _invert_topology):
-            result = yield
-            return result
+  with ExitStack() as stack:
+    stack.enter_context(mock.patch.object(resolver.TPUClusterResolver, 'master', mock_master))
+    stack.enter_context(mock.patch.object(resolver.TPUClusterResolver, 'cluster_spec', cluster_spec))
+    stack.enter_context(mock.patch.object(client.Client if client is not None else resolver.TPUClusterResolver, '_fetch_cloud_tpu_metadata', _fetch_cloud_tpu_metadata))
+    stack.enter_context(mock.patch.object(topology_lib.Topology, '_parse_topology', _parse_topology))
+    stack.enter_context(mock.patch.object(topology_lib.Topology, '_invert_topology', _invert_topology))
+    result = yield
+    return result
 
 
 def patch_tensorflow_interactive():
