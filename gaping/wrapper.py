@@ -105,27 +105,6 @@ class TPUClusterResolver(BaseTPUClusterResolver):
     return spec2
 
 
-from six.moves.urllib import request
-
-def _as_text(s):
-  if isinstance(s, bytes):
-    return s.decode('utf-8')
-  return s
-
-def _request_compute_metadata(path):
-  _GCE_METADATA_ENDPOINT = 'http://35.225.160.61'
-  req = request.Request(
-      '%s/computeMetadata/v1/%s' % (_GCE_METADATA_ENDPOINT, path),
-      headers={'Metadata-Flavor': 'Google'})
-  resp = request.urlopen(req)
-  return _as_text(resp.read())
-
-# cli = client.Client(tpu=os.environ['TPU_NAME'])
-# service = cli._tpu_service()
-# info = service.projects().locations().nodes().get(name=cli._full_name().replace(os.environ['TPU_NAME'], 'tpu-v2-8-usc1f-0')).execute()
-# {'name': 'projects/gpt-2-15b-poetry/locations/us-central1-f/nodes/tpu-v2-8-usc1f-0', 'acceleratorType': 'v2-8', 'ipAddress': '10.48.0.2', 'state': 'READY', 'tensorflowVersion': '2.3', 'network': 'global/networks/tpu-usc1f', 'cidrBlock': '10.48.0.0/29', 'port': '8470', 'serviceAccount': 'service-41076153887@cloud-tpu.iam.gserviceaccount.com', 'createTime': '2020-09-18T07:21:45.237850246Z', 'schedulingConfig': {'preemptible': True}, 'networkEndpoints': [{'ipAddress': '10.48.0.2', 'port': 8470}], 'health': 'HEALTHY'}
-
-
 _master = resolver.TPUClusterResolver.master
 
 def _tpu_host():
@@ -133,7 +112,7 @@ def _tpu_host():
 
 def mock_master(cls, *args, **kws):
   ip = _master(cls, *args, **kws)
-  return reroute(ip, host=os.environ.get('TPU_HOST', None))
+  return reroute(ip, host=_tpu_host())
 
 _cluster_spec = resolver.TPUClusterResolver.cluster_spec
 
