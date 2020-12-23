@@ -340,8 +340,9 @@ def get_topology(tpu=None, zone=None, project=None):
     tpu_topology = tpu_strategy_util.initialize_tpu_system(res)
     tpu_name = get_tpu_name(res)
     topology_cache.update({tpu_name: base64.b64encode(tpu_topology.serialized()).decode('utf8')})
+    topology_cache_contents = json.dumps(topology_cache, indent=4, sort_keys=True)
     with open('topology.cache', 'w') as f:
-      f.write(json.dumps(topology_cache))
+      f.write(topology_cache_contents)
   return tpu_topology
 
 def get_task_and_cores_to_replicas():
