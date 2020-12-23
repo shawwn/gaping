@@ -17,6 +17,7 @@ from six.moves.urllib.error import URLError
 from dotenv import load_dotenv
 load_dotenv()
 
+import numpy as np
 
 import tensorflow as tf
 from tensorflow.python.eager import context
@@ -68,10 +69,6 @@ def reroute(addr, host=None):
     return addr
   return host + ':' + str(port)
 
-
-def _tpu_host():
-  return os.environ.get('TPU_HOST', None)
-
 import functools
 from collections import OrderedDict
 
@@ -98,6 +95,9 @@ def resolver__init__(orig, cls, self, tpu=None, *args, **kws):
   if tpu is None:
     tpu = os.environ.get('TPU_NAME')
   return orig(self, tpu, *args, **kws)
+
+def _tpu_host():
+  return os.environ.get('TPU_HOST')
 
 @mock_method('patch_resolver_master', resolver.TPUClusterResolver, 'master')
 def _master(orig, cls, self, *args, **kws):
