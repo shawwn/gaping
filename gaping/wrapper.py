@@ -129,7 +129,7 @@ def _request_compute_metadata(path):
 _master = resolver.TPUClusterResolver.master
 
 def _tpu_host():
-  return os.environ.get('TPU_HOST', '10.255.128.3')
+  return os.environ.get('TPU_HOST', None)
 
 def mock_master(cls, *args, **kws):
   ip = _master(cls, *args, **kws)
@@ -215,6 +215,7 @@ def _invert_topology(self):
 @contextmanager
 def patch_tensorflow():
   tf.compat.v1.disable_eager_execution()
+  tf.compat.v1.logging.set_verbosity('DEBUG')
   with mock.patch.object(resolver.TPUClusterResolver, 'master', mock_master):
     with mock.patch.object(resolver.TPUClusterResolver, 'cluster_spec', cluster_spec):
       with mock.patch.object(client.Client if client is not None else resolver.TPUClusterResolver, '_fetch_cloud_tpu_metadata', _fetch_cloud_tpu_metadata):
@@ -284,9 +285,7 @@ from tensorflow.python.training import gradient_descent
 if __name__ == '__main__':
   _tf_patch = patch_tensorflow_interactive()
   if len(sys.argv) <= 1:
-    from tensorflow.core.protobuf import config_pb2
     tf1 = tf.compat.v1
-    tf.compat.v1.logging.set_verbosity('DEBUG')
     import numpy as np
     #session_config = config_pb2.ConfigProto(allow_soft_placement=True, isolate_session_state=True)
     rpc_options = config_pb2.RPCOptions()
