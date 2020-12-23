@@ -28,4 +28,6 @@ class BigGanTest(parameterized.TestCase, test_utils.GapingTestCase):
     
 
 if __name__ == "__main__":
-  tf.test.main()
+  import gaping.wrapper
+  with gaping.wrapper.patch_tensorflow():
+    tf.test.main()
