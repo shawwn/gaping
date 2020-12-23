@@ -191,6 +191,46 @@ def _invert_topology(self):
   return tasks, devices
 
 
+from tensorflow.core.protobuf import config_pb2
+from tensorflow.core.protobuf import rewriter_config_pb2
+
+def get_tpu_session_config():
+  #session_config = config_pb2.ConfigProto(allow_soft_placement=True, isolate_session_state=True)
+  rpc_options = config_pb2.RPCOptions()
+  # Setting cache_rpc_response to true will enable sender side caching of
+  # response for RecvTensorAsync and RecvBufAsync to allow receiver to retry
+  # requests . This is only necessary when the network fabric is experiencing a
+  # significant error rate.  Without it we'll fail a step on an network error,
+  # while with it we'll be able to complete long steps (like complex
+  # initializations) in the face of some network errors during RecvTensor.
+  rpc_options.cache_rpc_response = True
+
+  rewriter_config = rewriter_config_pb2.RewriterConfig(
+    disable_model_pruning=True,
+    disable_meta_optimizer=True,
+    dependency_optimization=rewriter_config_pb2.RewriterConfig.OFF,
+    fail_on_optimizer_errors=True,
+    )
+
+  graph_options = config_pb2.GraphOptions(
+    rewrite_options=rewriter_config,
+    place_pruned_graph=True,
+    infer_shapes=True,
+    )
+
+  session_config = config_pb2.ConfigProto(
+    graph_options=graph_options,
+    allow_soft_placement=True,
+    isolate_session_state=False,
+    )
+  # share variables across sessions on TPUs
+  session_config.experimental.share_session_state_in_clusterspec_propagation = True
+
+  # TODO: research this. What does it do?
+  # session_config.share_cluster_devices_in_session = True
+  return session_config
+
+
 @contextmanager
 def patch_tensorflow():
   tf.compat.v1.disable_eager_execution()
@@ -245,8 +285,6 @@ def enclosing_tpu_context():
   return values._enclosing_tpu_context()
 
 
-from tensorflow.core.protobuf import config_pb2
-from tensorflow.core.protobuf import rewriter_config_pb2
 from tensorflow.python.client import session
 from tensorflow.python.debug.lib import debug_data
 from tensorflow.python.debug.lib import debug_gradients
@@ -267,39 +305,8 @@ if __name__ == '__main__':
   if len(sys.argv) <= 1:
     tf1 = tf.compat.v1
     import numpy as np
-    #session_config = config_pb2.ConfigProto(allow_soft_placement=True, isolate_session_state=True)
-    rpc_options = config_pb2.RPCOptions()
-    # Setting cache_rpc_response to true will enable sender side caching of
-    # response for RecvTensorAsync and RecvBufAsync to allow receiver to retry
-    # requests . This is only necessary when the network fabric is experiencing a
-    # significant error rate.  Without it we'll fail a step on an network error,
-    # while with it we'll be able to complete long steps (like complex
-    # initializations) in the face of some network errors during RecvTensor.
-    rpc_options.cache_rpc_response = True
 
-    rewriter_config = rewriter_config_pb2.RewriterConfig(
-        disable_model_pruning=True,
-        disable_meta_optimizer=True,
-        dependency_optimization=rewriter_config_pb2.RewriterConfig.OFF,
-        fail_on_optimizer_errors=True,
-        )
-
-    graph_options = config_pb2.GraphOptions(
-        rewrite_options=rewriter_config,
-        place_pruned_graph=True,
-        infer_shapes=True,
-        )
-
-    session_config = config_pb2.ConfigProto(
-        graph_options=graph_options,
-        allow_soft_placement=True,
-        isolate_session_state=False,
-        )
-    # share variables across sessions on TPUs
-    session_config.experimental.share_session_state_in_clusterspec_propagation = True
-
-    # TODO: research this. What does it do?
-    # session_config.share_cluster_devices_in_session = True
+    session_config = get_tpu_session_config()
     
     master = None
     res = None
