@@ -7,6 +7,6 @@
   "license": "MIT",
   "scripts": {
     "start": "PYTHONSTARTUP=gaping/wrapper.py python3",
-    "test": "python3 gaping/wrapper.py gaping/biggan_test.py"
+    "test": "python3 gaping/gaping_test.py"
   }
 }

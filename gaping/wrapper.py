@@ -126,52 +126,63 @@ def _fetch_cloud_tpu_metadata(orig, cls, self, *args, **kws):
         raise e
 
 @mock_method('patch__parse_topology', topology_lib.Topology, '_parse_topology')
-def _parse_topology(orig, cls, self, serialized):
-    """Parses a serialized `TopologyProto` into `self`."""
-    proto = topology_pb2.TopologyProto()
-    proto.ParseFromString(serialized)
+def _parse_topology(orig, cls, self, serialized=None, mesh_shape=None, device_coordinates=None):
+  """Parses a serialized `TopologyProto` into `self`."""
+  proto = topology_pb2.TopologyProto()
+  proto.ParseFromString(serialized)
 
-    self._mesh_shape = np.array(proto.mesh_shape, dtype=np.int32)
-    if len(self._mesh_shape) != 4 or any(self._mesh_shape < 1):
-      # raise ValueError("`mesh_shape` must be a vector of size 4 with positive "
-      #                  "entries; got {}".format(self._mesh_shape))
-      return orig(self, serialized)
+  self._mesh_shape = np.array(proto.mesh_shape, dtype=np.int32)
+  if len(self._mesh_shape) not in [3, 4] or any(self._mesh_shape < 1):
+    raise ValueError("`mesh_shape` must be a vector of size 3 or 4 with positive "
+                     "entries; got {}".format(self._mesh_shape))
 
-    if proto.num_tasks < 0:
-      raise ValueError("`num_tasks` must be >= 0; got {}".format(
-          proto.num_tasks))
-    if proto.num_tpu_devices_per_task < 0:
-      raise ValueError("`num_tpu_devices_per_task` must be >= 0; got {}".format(
-          proto.num_tpu_devices_per_task))
+  if proto.num_tasks < 0:
+    raise ValueError("`num_tasks` must be >= 0; got {}".format(
+        proto.num_tasks))
+  if proto.num_tpu_devices_per_task < 0:
+    raise ValueError("`num_tpu_devices_per_task` must be >= 0; got {}".format(
+        proto.num_tpu_devices_per_task))
 
-    expected_coordinates_size = (
-        proto.num_tasks * proto.num_tpu_devices_per_task * len(
-            proto.mesh_shape))
-    if len(proto.device_coordinates) != expected_coordinates_size:
-      raise ValueError("`device_coordinates` must have shape num_tasks ({}) * "
-                       "num_tpu_devices_per_task ({}) * len(mesh_shape) ({}); "
-                       "got shape {}".format(proto.num_tasks,
-                                             proto.num_tpu_devices_per_task,
-                                             proto.mesh_shape,
-                                             len(proto.device_coordinates)))
+  expected_coordinates_size = (proto.num_tasks * proto.num_tpu_devices_per_task * len( proto.mesh_shape))
+  if len(proto.device_coordinates) != expected_coordinates_size:
+    raise ValueError("`device_coordinates` must have shape num_tasks ({}) * "
+                     "num_tpu_devices_per_task ({}) * len(mesh_shape) ({}); "
+                     "got shape {}".format(proto.num_tasks,
+                                           proto.num_tpu_devices_per_task,
+                                           proto.mesh_shape,
+                                           len(proto.device_coordinates)))
 
-    coords = np.array(proto.device_coordinates, dtype=np.int32)
-    if any(coords < 0):
-      raise ValueError("`device_coordinates` must be >= 0")
-    coords = coords.reshape((proto.num_tasks, proto.num_tpu_devices_per_task,
-                             len(proto.mesh_shape)))
-    self._device_coordinates = coords
-  
+  coords = np.array(proto.device_coordinates, dtype=np.int32)
+  if any(coords < 0):
+    raise ValueError("`device_coordinates` must be >= 0")
+  coords = coords.reshape((proto.num_tasks, proto.num_tpu_devices_per_task, len(proto.mesh_shape)))
+  self._device_coordinates = coords
+  expected_coordinates_size = (proto.num_tasks * proto.num_tpu_devices_per_task * len(proto.mesh_shape))
+  if len(proto.device_coordinates) != expected_coordinates_size:
+    raise ValueError("`device_coordinates` must have shape num_tasks ({}) * "
+                     "num_tpu_devices_per_task ({}) * len(mesh_shape) ({}); "
+                     "got shape {}".format(proto.num_tasks,
+                                           proto.num_tpu_devices_per_task,
+                                           proto.mesh_shape,
+                                           len(proto.device_coordinates)))
+
 @mock_method('patch__invert_topology', topology_lib.Topology, '_invert_topology')
 def _invert_topology(orig, cls, self):
   """Inverts a [task,device,axis] topology to [x,y,z] -> task/device maps."""
   tasks = np.full(list(self.mesh_shape), -1, dtype=np.int32)
   devices = np.full(list(self.mesh_shape), -1, dtype=np.int32)
-  for task in range(self.device_coordinates.shape[0]):
-    for device in range(self.device_coordinates.shape[1]):
-      x, y, z, core = self.device_coordinates[task, device, :]
-      tasks[x, y, z, core] = task
-      devices[x, y, z, core] = device
+  if len(self.mesh_shape) == 3:
+    for task in range(self.device_coordinates.shape[0]):
+      for device in range(self.device_coordinates.shape[1]):
+        x, y, z = self.device_coordinates[task, device, :]
+        tasks[x, y, z] = task
+        devices[x, y, z] = device
+  else:
+    for task in range(self.device_coordinates.shape[0]):
+      for device in range(self.device_coordinates.shape[1]):
+        x, y, z, core = self.device_coordinates[task, device, :]
+        tasks[x, y, z, core] = task
+        devices[x, y, z, core] = device
   return tasks, devices
 
 
@@ -279,6 +290,39 @@ from tensorflow.python.platform import googletest
 from tensorflow.python.training import gradient_descent
 
 
+topology_cache = {}
+try:
+  with open('topology.cache', 'r') as f:
+    topology_cache = json.load(f)
+except FileNotFoundError:
+  pass
+def cached_topology(name=None):
+  if name is None:
+    name = os.environ.get('TPU_NAME', None)
+  result = topology_cache.get(name, None)
+  if result is not None:
+    serialized = base64.b64decode(result)
+    return topology_lib.Topology(serialized=serialized)
+def get_topology():
+  global tpu_topology
+  tpu_topology = cached_topology()
+  if tpu_topology is None:
+    tpu_topology = tpu_strategy_util.initialize_tpu_system(res)
+    topology_cache.update({os.environ['TPU_NAME']: base64.b64encode(tpu_topology.serialized()).decode('utf8')})
+    with open('topology.cache', 'w') as f:
+      f.write(json.dumps(topology_cache))
+  return tpu_topology
+def get_task_and_cores_to_replicas():
+  return device_assignment_lib._compute_task_and_cores_to_replicas(tpu_topology.device_coordinates, tpu_topology)
+def get_core_assignment(*core_ids):
+  return device_assignment_lib.DeviceAssignment(get_topology(), [[get_topology().device_coordinates[0][i]] for i in core_ids])
+def get_device_assignment(num_replicas, computation_shape=None, topology=None):
+  if topology is None:
+    topology = get_topology()
+  if computation_shape is None:
+    computation_shape = [1, 1, 1, 2]
+  device_assignment = tf.tpu.experimental.DeviceAssignment.build(topology, computation_shape=computation_shape, num_replicas=num_replicas)
+  return device_assignment
 
 if __name__ == '__main__':
   _tf_patch = patch_tensorflow_interactive()
@@ -328,40 +372,6 @@ if __name__ == '__main__':
     from tensorflow.python.tpu import tpu_strategy_util
     from tensorflow.python.tpu import device_assignment as device_assignment_lib
     from tensorflow.python.tpu import topology as topology_lib
-    tpu_topology = None
-    topology_cache = {}
-    try:
-      with open('topology.cache', 'r') as f:
-        topology_cache = json.load(f)
-    except FileNotFoundError:
-      pass
-    def cached_topology(name=None):
-      if name is None:
-        name = os.environ.get('TPU_NAME', None)
-      result = topology_cache.get(name, None)
-      if result is not None:
-        serialized = base64.b64decode(result)
-        return topology_lib.Topology(serialized=serialized)
-    def get_topology():
-      global tpu_topology
-      tpu_topology = cached_topology()
-      if tpu_topology is None:
-        tpu_topology = tpu_strategy_util.initialize_tpu_system(res)
-        topology_cache.update({os.environ['TPU_NAME']: base64.b64encode(tpu_topology.serialized()).decode('utf8')})
-        with open('topology.cache', 'w') as f:
-          f.write(json.dumps(topology_cache))
-      return tpu_topology
-    def get_task_and_cores_to_replicas():
-      return device_assignment_lib._compute_task_and_cores_to_replicas(tpu_topology.device_coordinates, tpu_topology)
-    def get_core_assignment(*core_ids):
-      return device_assignment_lib.DeviceAssignment(get_topology(), [[get_topology().device_coordinates[0][i]] for i in core_ids])
-    def get_device_assignment(num_replicas, computation_shape=None, topology=None):
-      if topology is None:
-        topology = get_topology()
-      if computation_shape is None:
-        computation_shape = [1, 1, 1, 2]
-      device_assignment = tf.tpu.experimental.DeviceAssignment.build(topology, computation_shape=computation_shape, num_replicas=num_replicas)
-      return device_assignment
     tpu_topology = cached_topology()
   else:
     filename = sys.argv[1]
