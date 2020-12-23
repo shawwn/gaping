@@ -1,1 +1,2 @@
 python-dotenv>=0.14.0
+tensorflow-hub>=0.10.0

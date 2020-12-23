@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+import tensorflow as tf
 from tensorflow.python.eager import context
 from tensorflow.python import framework
 from tensorflow.python.client import session
@@ -213,6 +214,7 @@ def _invert_topology(self):
 
 @contextmanager
 def patch_tensorflow():
+  tf.compat.v1.disable_eager_execution()
   with mock.patch.object(resolver.TPUClusterResolver, 'master', mock_master):
     with mock.patch.object(resolver.TPUClusterResolver, 'cluster_spec', cluster_spec):
       with mock.patch.object(client.Client if client is not None else resolver.TPUClusterResolver, '_fetch_cloud_tpu_metadata', _fetch_cloud_tpu_metadata):
@@ -283,7 +285,6 @@ if __name__ == '__main__':
   _tf_patch = patch_tensorflow_interactive()
   if len(sys.argv) <= 1:
     from tensorflow.core.protobuf import config_pb2
-    import tensorflow as tf
     tf1 = tf.compat.v1
     tf.compat.v1.logging.set_verbosity('DEBUG')
     import numpy as np
