@@ -41,7 +41,7 @@ try:
   from cloud_tpu_client import client  # pylint: disable=g-import-not-at-top
 except ImportError:
   try:
-    logging.debug(
+    tf.logging.debug(
         'Falling back to TensorFlow client; we recommended you install the Cloud '
         'TPU client directly with pip install cloud-tpu-client.')
     from tensorflow.python.tpu.client import client  # pylint: disable=g-import-not-at-top
