@@ -28,6 +28,7 @@ from tensorflow.python.eager.context import LogicalDevice
 from tensorflow.python.framework import errors
 from tensorflow.python.framework import test_util
 from tensorflow.python.platform import test
+mock = test.mock
 from tensorflow.python.training import server_lib
 from tensorflow.python.util import compat
 
@@ -47,8 +48,6 @@ except ImportError:
   except ImportError:
     client = None
 
-
-mock = test.mock
 
 def reroute(addr, host=None):
   if host is None or host is False:
@@ -105,31 +104,48 @@ class TPUClusterResolver(BaseTPUClusterResolver):
     return spec2
 
 
-_master = resolver.TPUClusterResolver.master
-
 def _tpu_host():
   return os.environ.get('TPU_HOST', None)
 
-def mock_master(cls, *args, **kws):
-  ip = _master(cls, *args, **kws)
+import functools
+from collections import OrderedDict
+
+mocks = {}
+
+def mock_method(unique_name, cls, name=None):
+  if name is None:
+    name = fn.__name__
+  wrapped = getattr(cls, name)
+  def func(fn):
+    @functools.wraps(fn)
+    def _fn(self, *args, **kwargs):
+      return fn(wrapped, cls, self, *args, **kwargs)
+    mocks[unique_name] = lambda: mock.patch.object(cls, name, _fn)
+    return _fn
+  return func
+
+def activate_mocks(exit_stack):
+  for creator in mocks.values():
+    exit_stack.enter_context(creator())
+
+@mock_method('patch_resolver_master', resolver.TPUClusterResolver, 'master')
+def _master(orig, cls, self, *args, **kws):
+  ip = orig(self, *args, **kws)
   return reroute(ip, host=_tpu_host())
 
-_cluster_spec = resolver.TPUClusterResolver.cluster_spec
-
-def cluster_spec(cls, *args, **kws):
-  spec = _cluster_spec(cls, *args, **kws)
+@mock_method('patch_resolver_cluster_spec', resolver.TPUClusterResolver, 'cluster_spec')
+def _cluster_spec(orig, cls, self, *args, **kws):
+  spec = orig(self, *args, **kws)
   r = dict()
   for k, v in spec.as_dict().items():
-    r[k] = [reroute(ip, host=os.environ.get('TPU_HOST', None)) for ip in v]
+    r[k] = [reroute(ip, host=_tpu_host()) for ip in v]
   return server_lib.ClusterSpec(r)
 
-
-__fetch_cloud_tpu_metadata = (client.Client if client is not None else resolver.TPUClusterResolver)._fetch_cloud_tpu_metadata
-
-def _fetch_cloud_tpu_metadata(cls, *args, **kws):
+@mock_method('patch_fetch_cloud_tpu_metadata', (client.Client if client is not None else resolver.TPUClusterResolver), '_fetch_cloud_tpu_metadata')
+def _fetch_cloud_tpu_metadata(orig, cls, self, *args, **kws):
   while True:
     try:
-      return __fetch_cloud_tpu_metadata(cls, *args, **kws)
+      return orig(self, *args, **kws)
     except Exception as e:
       if '[Errno 111] Connection refused' in str(e):
         # retry
@@ -138,10 +154,8 @@ def _fetch_cloud_tpu_metadata(cls, *args, **kws):
       else:
         raise e
 
-
-__parse_topology = topology_lib.Topology._parse_topology
-
-def _parse_topology(self, serialized):
+@mock_method('patch__parse_topology', topology_lib.Topology, '_parse_topology')
+def _parse_topology(orig, cls, self, serialized):
     """Parses a serialized `TopologyProto` into `self`."""
     proto = topology_pb2.TopologyProto()
     proto.ParseFromString(serialized)
@@ -176,10 +190,8 @@ def _parse_topology(self, serialized):
                              len(proto.mesh_shape)))
     self._device_coordinates = coords
   
-
-__invert_topology = topology_lib.Topology._invert_topology
-
-def _invert_topology(self):
+@mock_method('patch__invert_topology', topology_lib.Topology, '_invert_topology')
+def _invert_topology(orig, cls, self):
   """Inverts a [task,device,axis] topology to [x,y,z] -> task/device maps."""
   tasks = np.full(list(self.mesh_shape), -1, dtype=np.int32)
   devices = np.full(list(self.mesh_shape), -1, dtype=np.int32)
@@ -235,12 +247,8 @@ def get_tpu_session_config():
 def patch_tensorflow():
   tf.compat.v1.disable_eager_execution()
   tf.compat.v1.logging.set_verbosity('DEBUG')
-  with ExitStack() as stack:
-    stack.enter_context(mock.patch.object(resolver.TPUClusterResolver, 'master', mock_master))
-    stack.enter_context(mock.patch.object(resolver.TPUClusterResolver, 'cluster_spec', cluster_spec))
-    stack.enter_context(mock.patch.object(client.Client if client is not None else resolver.TPUClusterResolver, '_fetch_cloud_tpu_metadata', _fetch_cloud_tpu_metadata))
-    stack.enter_context(mock.patch.object(topology_lib.Topology, '_parse_topology', _parse_topology))
-    stack.enter_context(mock.patch.object(topology_lib.Topology, '_invert_topology', _invert_topology))
+  with ExitStack() as exit_stack:
+    activate_mocks(exit_stack)
     result = yield
     return result
 
