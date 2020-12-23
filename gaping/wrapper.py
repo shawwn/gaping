@@ -14,12 +14,27 @@ import six
 import json
 import base64
 from six.moves.urllib.error import URLError
-from dotenv import load_dotenv
-load_dotenv()
+
+import tensorflow as tf
+logging = tf.compat.v1.logging
+
+def dotenv_reload(dotenv_path=None, dotenv_verbose=None):
+  from dotenv import load_dotenv
+  if dotenv_path is None:
+    dotenv_path = os.environ.get('DOTENV_PATH')
+  if dotenv_verbose is None:
+    dotenv_verbose = bool(int(os.environ.get('DOTENV_VERBOSE', '1')))
+  logging.info('load_dotenv(dotenv_path={!r}, verbose={!r})'.format(dotenv_path, dotenv_verbose))
+  return load_dotenv(dotenv_path=dotenv_path, verbose=dotenv_verbose)
+
+def dotenv_startup():
+  if not bool(int(os.environ.get('NO_DOTENV', '0'))):
+    dotenv_reload()
+  else:
+    logging.info('NO_DOTENV is set; not loading .env')
 
 import numpy as np
 
-import tensorflow as tf
 from tensorflow.python.eager import context
 from tensorflow.python import framework
 from tensorflow.python.client import session
@@ -42,7 +57,7 @@ try:
   from cloud_tpu_client import client  # pylint: disable=g-import-not-at-top
 except ImportError:
   try:
-    tf.compat.v1.logging.debug(
+    logging.debug(
         'Falling back to TensorFlow client; we recommended you install the Cloud '
         'TPU client directly with pip install cloud-tpu-client.')
     from tensorflow.python.tpu.client import client  # pylint: disable=g-import-not-at-top
@@ -91,10 +106,14 @@ def activate_mocks(exit_stack):
     exit_stack.enter_context(creator())
 
 @mock_method('patch_resolver_auto_tpu', resolver.TPUClusterResolver, '__init__')
-def resolver__init__(orig, cls, self, tpu=None, *args, **kws):
+def resolver__init__(orig, cls, self, tpu=None, zone=None, project=None, *args, **kws):
   if tpu is None:
     tpu = os.environ.get('TPU_NAME')
-  return orig(self, tpu, *args, **kws)
+  if zone is None:
+    zone = os.environ.get('TPU_ZONE')
+  if project is None:
+    project = os.environ.get('TPU_PROJECT')
+  return orig(self, tpu, zone, project, *args, **kws)
 
 def _tpu_host():
   return os.environ.get('TPU_HOST')
@@ -189,7 +208,7 @@ def _invert_topology(orig, cls, self):
 from tensorflow.core.protobuf import config_pb2
 from tensorflow.core.protobuf import rewriter_config_pb2
 
-def get_tpu_session_config():
+def get_tpu_session_config(resolver=None):
   #session_config = config_pb2.ConfigProto(allow_soft_placement=True, isolate_session_state=True)
   rpc_options = config_pb2.RPCOptions()
   # Setting cache_rpc_response to true will enable sender side caching of
@@ -230,6 +249,7 @@ def get_tpu_session_config():
 def patch_tensorflow():
   tf.compat.v1.disable_eager_execution()
   tf.compat.v1.logging.set_verbosity('DEBUG')
+  dotenv_startup()
   with ExitStack() as exit_stack:
     activate_mocks(exit_stack)
     result = yield
@@ -296,26 +316,40 @@ try:
     topology_cache = json.load(f)
 except FileNotFoundError:
   pass
-def cached_topology(name=None):
-  if name is None:
-    name = os.environ.get('TPU_NAME', None)
-  result = topology_cache.get(name, None)
+
+def get_tpu_name(resolver=None, zone=None, project=None):
+  if resolver is None:
+    resolver = TPUClusterResolver(zone=zone, project=project)
+  name = resolver._tpu
+  if isinstance(name, bytes):
+    name = name.decode('utf8')
+  return name
+
+def cached_topology(tpu=None, zone=None, project=None):
+  if tpu is None:
+    tpu = get_tpu_name(zone=zone, project=project)
+  result = topology_cache.get(tpu, None)
   if result is not None:
     serialized = base64.b64decode(result)
     return topology_lib.Topology(serialized=serialized)
-def get_topology():
-  global tpu_topology
-  tpu_topology = cached_topology()
+
+def get_topology(tpu=None, zone=None, project=None):
+  tpu_topology = cached_topology(tpu=tpu, zone=zone, project=project)
   if tpu_topology is None:
+    res = TPUClusterResolver(tpu, zone=zone, project=project)
     tpu_topology = tpu_strategy_util.initialize_tpu_system(res)
-    topology_cache.update({os.environ['TPU_NAME']: base64.b64encode(tpu_topology.serialized()).decode('utf8')})
+    tpu_name = get_tpu_name(res)
+    topology_cache.update({tpu_name: base64.b64encode(tpu_topology.serialized()).decode('utf8')})
     with open('topology.cache', 'w') as f:
       f.write(json.dumps(topology_cache))
   return tpu_topology
+
 def get_task_and_cores_to_replicas():
   return device_assignment_lib._compute_task_and_cores_to_replicas(tpu_topology.device_coordinates, tpu_topology)
+
 def get_core_assignment(*core_ids):
   return device_assignment_lib.DeviceAssignment(get_topology(), [[get_topology().device_coordinates[0][i]] for i in core_ids])
+
 def get_device_assignment(num_replicas, computation_shape=None, topology=None):
   if topology is None:
     topology = get_topology()
@@ -357,7 +391,8 @@ if __name__ == '__main__':
     except:
       import traceback
       traceback.print_exc()
-    graph = tf.Graph()
+    #graph = tf.Graph()
+    graph = tf.get_default_graph()
     sess = tf.compat.v1.InteractiveSession(master, graph=graph, config=session_config)
     devices = sess.list_devices()
     cores = sorted([x.name for x in devices if ':TPU:' in x.name])
@@ -372,13 +407,15 @@ if __name__ == '__main__':
     from tensorflow.python.tpu import tpu_strategy_util
     from tensorflow.python.tpu import device_assignment as device_assignment_lib
     from tensorflow.python.tpu import topology as topology_lib
-    tpu_topology = cached_topology()
+    tpu_topology = None
+    if num_cores > 0:
+      tpu_topology = cached_topology()
   else:
     filename = sys.argv[1]
     sys.argv = sys.argv[1:]
     with open(filename) as f:
       source = f.read()
     code = compile(source, filename, 'exec')
-    exec(code, globals(), globals())
+    exec(code, globals(), locals())
 
 
