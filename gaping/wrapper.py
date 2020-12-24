@@ -317,24 +317,27 @@ try:
 except FileNotFoundError:
   pass
 
-def get_tpu_resolver(resolver=None, zone=None, project=None):
-  if resolver is None or isinstance(resolver, str):
-    resolver = TPUClusterResolver(tpu=resolver, zone=zone, project=project)
-  return resolver
+def get_tpu_resolver(tpu_or_resolver=None, zone=None, project=None):
+  if tpu_or_resolver is None or isinstance(tpu_or_resolver, str):
+    tpu_or_resolver = TPUClusterResolver(tpu=tpu_or_resolver, zone=zone, project=project)
+  return tpu_or_resolver
 
-def get_tpu_name(resolver=None, zone=None, project=None):
-  if resolver is None or isinstance(resolver, str):
-    resolver = TPUClusterResolver(tpu=resolver, zone=zone, project=project)
-  name = resolver
-  if hasattr(resolver, '_tpu'):
-    name = resolver._tpu
+def get_tpu_name(tpu_or_resolver=None, zone=None, project=None):
+  if tpu_or_resolver is None or isinstance(tpu_or_resolver, str):
+    try:
+      tpu_or_resolver = TPUClusterResolver(tpu=tpu_or_resolver, zone=zone, project=project)
+    except ValueError as e:
+      if str(e) == 'Please provide a TPU Name to connect to.':
+        return None
+  name = tpu_or_resolver
+  if hasattr(tpu_or_resolver, '_tpu'):
+    name = tpu_or_resolver._tpu
   if isinstance(name, bytes):
     name = name.decode('utf8')
   return name
 
 def cached_topology(tpu=None, zone=None, project=None):
-  if tpu is None:
-    tpu = get_tpu_name(tpu, zone=zone, project=project)
+  tpu = get_tpu_name(tpu, zone=zone, project=project)
   result = topology_cache.get(tpu, None)
   if result is not None:
     serialized = base64.b64decode(result)
