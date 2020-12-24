@@ -317,6 +317,11 @@ try:
 except FileNotFoundError:
   pass
 
+def get_tpu_resolver(resolver=None, zone=None, project=None):
+  if resolver is None or isinstance(resolver, str):
+    resolver = TPUClusterResolver(tpu=resolver, zone=zone, project=project)
+  return resolver
+
 def get_tpu_name(resolver=None, zone=None, project=None):
   if resolver is None or isinstance(resolver, str):
     resolver = TPUClusterResolver(tpu=resolver, zone=zone, project=project)
@@ -338,7 +343,7 @@ def cached_topology(tpu=None, zone=None, project=None):
 def get_topology(tpu=None, zone=None, project=None):
   tpu_topology = cached_topology(tpu=tpu, zone=zone, project=project)
   if tpu_topology is None:
-    res = TPUClusterResolver(tpu, zone=zone, project=project)
+    res = get_tpu_resolver(tpu, zone=zone, project=project)
     tpu_topology = tpu_strategy_util.initialize_tpu_system(res)
     tpu_name = get_tpu_name(res)
     topology_cache.update({tpu_name: base64.b64encode(tpu_topology.serialized()).decode('utf8')})
