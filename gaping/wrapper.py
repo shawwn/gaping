@@ -355,7 +355,9 @@ def get_topology(tpu=None, zone=None, project=None):
       f.write(topology_cache_contents)
   return tpu_topology
 
-def get_task_and_cores_to_replicas():
+from tensorflow.python.tpu import device_assignment as device_assignment_lib
+
+def get_task_and_cores_to_replicas(tpu_topology):
   return device_assignment_lib._compute_task_and_cores_to_replicas(tpu_topology.device_coordinates, tpu_topology)
 
 def get_core_assignment(*core_ids):
@@ -416,7 +418,6 @@ if __name__ == '__main__':
     from tensorflow.compiler.tf2xla.python import xla
     from tensorflow.compiler.tf2xla.ops import gen_xla_ops
     from tensorflow.python.tpu import tpu_strategy_util
-    from tensorflow.python.tpu import device_assignment as device_assignment_lib
     from tensorflow.python.tpu import topology as topology_lib
     tpu_topology = None
     if num_cores > 0:
