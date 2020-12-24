@@ -318,16 +318,18 @@ except FileNotFoundError:
   pass
 
 def get_tpu_name(resolver=None, zone=None, project=None):
-  if resolver is None:
-    resolver = TPUClusterResolver(zone=zone, project=project)
-  name = resolver._tpu
+  if resolver is None or isinstance(resolver, str):
+    resolver = TPUClusterResolver(tpu=resolver, zone=zone, project=project)
+  name = resolver
+  if hasattr(resolver, '_tpu'):
+    name = resolver._tpu
   if isinstance(name, bytes):
     name = name.decode('utf8')
   return name
 
 def cached_topology(tpu=None, zone=None, project=None):
   if tpu is None:
-    tpu = get_tpu_name(zone=zone, project=project)
+    tpu = get_tpu_name(tpu, zone=zone, project=project)
   result = topology_cache.get(tpu, None)
   if result is not None:
     serialized = base64.b64decode(result)
