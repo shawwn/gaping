@@ -249,6 +249,7 @@ def get_tpu_session_config(resolver=None):
 def patch_tensorflow():
   tf.compat.v1.disable_eager_execution()
   tf.compat.v1.logging.set_verbosity('DEBUG')
+  tf.compat.v1.enable_resource_variables()
   dotenv_startup()
   with ExitStack() as exit_stack:
     activate_mocks(exit_stack)
@@ -269,18 +270,18 @@ def interact():
 
 def clone_session(session=None, graph=None, interactive=False, **kws):
   if session is None:
-    session = tf.get_default_session()
+    session = tf.compat.v1.get_default_session()
   if graph is None:
     graph = session.graph
   config = session._config # is there a better way to do this?
   master = session.sess_str # is there a better way to do this?
-  Session = (tf.compat.v1.InteractiveSession if interactive else tf.Session)
+  Session = (tf.compat.v1.InteractiveSession if interactive else tf.compat.v1.Session)
   return Session(master, graph=graph, config=config, **kws)
 
 
 def reset_session(session=None, graph=None, interactive=True, **kws):
   if session is None:
-    session = tf.get_default_session()
+    session = tf.compat.v1.get_default_session()
   if graph is None:
     graph = tf.Graph()
   graph.as_default().__enter__()
@@ -343,9 +344,9 @@ def cached_topology(tpu=None, zone=None, project=None):
     serialized = base64.b64decode(result)
     return topology_lib.Topology(serialized=serialized)
 
-def get_topology(tpu=None, zone=None, project=None):
+def get_topology(tpu=None, zone=None, project=None, force=False):
   tpu_topology = cached_topology(tpu=tpu, zone=zone, project=project)
-  if tpu_topology is None:
+  if tpu_topology is None or force:
     res = get_tpu_resolver(tpu, zone=zone, project=project)
     tpu_topology = tpu_strategy_util.initialize_tpu_system(res)
     tpu_name = get_tpu_name(res)
@@ -355,27 +356,73 @@ def get_topology(tpu=None, zone=None, project=None):
       f.write(topology_cache_contents)
   return tpu_topology
 
+def get_tpu_total_core_count(topology=None):
+  if topology is None:
+    topology = cached_topology()
+  return topology.num_tasks * topology.num_tpus_per_task
+
+def get_tpu_cores(core_ids=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  if topology is None:
+    return []
+  all_cores = topology.device_coordinates.reshape([-1, topology.device_coordinates.shape[-1]])
+  if core_ids is not None:
+    coords = []
+    for task_idx, task in enumerate(topology.device_coordinates):
+      for core_idx, core in enumerate(task):
+        core_id = (core_idx + task_idx*len(topology.device_coordinates[task_idx]))
+        if core_id in core_ids:
+          coords.append(core)
+    return coords
+    # cores = [[core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) in core_ids] for task_idx, task in enumerate(topology.device_coordinates)]
+    # #core_ids = np.array(cores, dtype=np.int32)
+    # return all_cores[cores]
+  return all_cores
+
 from tensorflow.python.tpu import device_assignment as device_assignment_lib
 
-def get_task_and_cores_to_replicas(tpu_topology):
-  return device_assignment_lib._compute_task_and_cores_to_replicas(tpu_topology.device_coordinates, tpu_topology)
-
-def get_core_assignment(*core_ids):
-  return device_assignment_lib.DeviceAssignment(get_topology(), [[get_topology().device_coordinates[0][i]] for i in core_ids])
-
-def get_device_assignment(num_replicas, computation_shape=None, topology=None):
+def get_task_and_cores_to_replicas(topology=None):
   if topology is None:
-    topology = get_topology()
-  if computation_shape is None:
-    computation_shape = [1, 1, 1, 2]
-  device_assignment = tf.tpu.experimental.DeviceAssignment.build(topology, computation_shape=computation_shape, num_replicas=num_replicas)
+    topology = cached_topology()
+  return device_assignment_lib._compute_task_and_cores_to_replicas(topology.device_coordinates, topology)
+
+def get_core_assignment(core_ids=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  return device_assignment_lib.DeviceAssignment(topology, [[topology.device_coordinates[i//8][i%8]] for i in core_ids])
+
+def get_device_assignment(computation_shape=None, computation_stride=None, *, num_replicas=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  if num_replicas is None:
+    dev = None
+    core_count = get_tpu_total_core_count(topology=topology)
+    for i in range(core_count):
+      try:
+        dev = get_device_assignment(computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=i+1, topology=topology)
+        num_replicas = i+1
+      except ValueError:
+        if dev is None:
+          raise
+        return dev
+  device_assignment = tf.tpu.experimental.DeviceAssignment.build(topology, computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=num_replicas)
+  return device_assignment
+
+def print_device_assignment(device_assignment):
+  [print('--- replica %d ---' % i) or [
+    print({
+      'coordinate': device_assignment.coordinates(i,j),
+      'host': device_assignment.host_device(i,j),
+      'core': device_assignment.tpu_device(i,j),
+      'ordinal': device_assignment.tpu_ordinal(i,j)}) for j in range(device_assignment.num_cores_per_replica)] for i in range(device_assignment.num_replicas)]
+  print('=== num_replicas=%d num_cores_per_replica=%d ===' % (device_assignment.num_replicas, device_assignment.num_cores_per_replica))
   return device_assignment
 
 if __name__ == '__main__':
   _tf_patch = patch_tensorflow_interactive()
   if len(sys.argv) <= 1:
     tf1 = tf.compat.v1
-    import numpy as np
 
     session_config = get_tpu_session_config()
     
@@ -405,7 +452,7 @@ if __name__ == '__main__':
       import traceback
       traceback.print_exc()
     #graph = tf.Graph()
-    graph = tf.get_default_graph()
+    graph = tf.compat.v1.get_default_graph()
     sess = tf.compat.v1.InteractiveSession(master, graph=graph, config=session_config)
     devices = sess.list_devices()
     cores = sorted([x.name for x in devices if ':TPU:' in x.name])
