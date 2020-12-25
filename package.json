@@ -6,7 +6,7 @@
   "author": "Shawn Presser <shawnpresser@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "start": "PYTHONSTARTUP=gaping/wrapper.py python3",
+    "start": "PYTHONSTARTUP=gaping/wrapper.py PYTHONPATH=.:../mesh python3",
     "test": "python3 gaping/gaping_test.py"
   }
 }

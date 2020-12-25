@@ -5,7 +5,8 @@ from __future__ import print_function
 
 from pprint import pprint as pp
 from pprint import pformat as pf
-from contextlib import contextmanager, ExitStack
+import contextlib
+from contextlib import contextmanager
 
 import sys
 import os
@@ -38,13 +39,11 @@ import numpy as np
 from tensorflow.python.eager import context
 from tensorflow.python import framework
 from tensorflow.python.client import session
-from tensorflow.python.distribute.cluster_resolver import tpu_cluster_resolver as resolver
+from tensorflow.python.distribute.cluster_resolver import tpu_cluster_resolver
 from tensorflow.compat.v1.distribute.cluster_resolver import TPUClusterResolver
 from tensorflow.python.eager.context import LogicalDevice
 from tensorflow.python.framework import errors
 from tensorflow.python.framework import test_util
-from tensorflow.python.platform import test
-mock = test.mock
 from tensorflow.python.training import server_lib
 from tensorflow.python.util import compat
 
@@ -64,10 +63,14 @@ except ImportError:
   except ImportError:
     client = None
 
+def _tpu_host():
+  return os.environ.get('TPU_HOST')
 
 def reroute(addr, host=None):
-  if host is None or host is False:
+  if host is False:
     return addr
+  if host is None:
+    host = _tpu_host()
   if addr.startswith('grpc://'):
     return 'grpc://' + reroute(addr[len('grpc://'):], host=host)
   if not re.match('[0-9]+[.][0-9]+[.][0-9]+[.][0-9]+[:]8470', addr):
@@ -86,26 +89,54 @@ def reroute(addr, host=None):
 
 import functools
 from collections import OrderedDict
+from tensorflow.python.platform import test
+mock = test.mock
 
-mocks = {}
+import threading
+from types import SimpleNamespace as NS
+
+mocks = globals().get('mocks') or NS(advice={}, deactivate=None, lock=threading.RLock())
+
+def mocks_active():
+  return mocks.deactivate is not None
 
 def mock_method(unique_name, cls, name=None, doc=None):
-  if name is None:
-    name = fn.__name__
-  wrapped = getattr(cls, name)
   def func(fn):
+    nonlocal name
+    if name is None:
+      name = fn.__name__
+    wrapped = getattr(cls, name)
     @functools.wraps(fn)
     def _fn(self, *args, **kwargs):
       return fn(wrapped, cls, self, *args, **kwargs)
-    mocks[unique_name] = lambda: mock.patch.object(cls, name, _fn)
+    if hasattr(wrapped, '__name__'):
+      _fn.__name__ = wrapped.__name__
+    if hasattr(wrapped, '__module__'):
+      _fn.__module__ = wrapped.__module__
+    if hasattr(wrapped, '__qualname__'):
+      _fn.__qualname__ = wrapped.__qualname__
+    mocks.advice[unique_name] = lambda: mock.patch.object(cls, name, _fn)
     return _fn
   return func
 
-def activate_mocks(exit_stack):
-  for creator in mocks.values():
-    exit_stack.enter_context(creator())
+def deactivate_mocks():
+  with mocks.lock:
+    if mocks.deactivate:
+      mocks.deactivate()
+      mocks.deactivate = None
+      return True
 
-@mock_method('patch_resolver_auto_tpu', resolver.TPUClusterResolver, '__init__')
+def activate_mocks():
+  with mocks.lock:
+    deactivate_mocks()
+    with contextlib.ExitStack() as stack:
+      for creator in mocks.advice.values():
+        stack.enter_context(creator())
+      stk = stack.pop_all()
+      mocks.deactivate = stk.close
+      return stk
+
+@mock_method('patch_resolver_auto_tpu', tpu_cluster_resolver.TPUClusterResolver, '__init__')
 def resolver__init__(orig, cls, self, tpu=None, zone=None, project=None, *args, **kws):
   if tpu is None:
     tpu = os.environ.get('TPU_NAME')
@@ -115,23 +146,20 @@ def resolver__init__(orig, cls, self, tpu=None, zone=None, project=None, *args, 
     project = os.environ.get('TPU_PROJECT')
   return orig(self, tpu, zone, project, *args, **kws)
 
-def _tpu_host():
-  return os.environ.get('TPU_HOST')
-
-@mock_method('patch_resolver_master', resolver.TPUClusterResolver, 'master')
+@mock_method('patch_resolver_master', tpu_cluster_resolver.TPUClusterResolver, 'master')
 def _master(orig, cls, self, *args, **kws):
   ip = orig(self, *args, **kws)
-  return reroute(ip, host=_tpu_host())
+  return reroute(ip)
 
-@mock_method('patch_resolver_cluster_spec', resolver.TPUClusterResolver, 'cluster_spec')
+@mock_method('patch_resolver_cluster_spec', tpu_cluster_resolver.TPUClusterResolver, 'cluster_spec')
 def _cluster_spec(orig, cls, self, *args, **kws):
   spec = orig(self, *args, **kws)
   r = dict()
   for k, v in spec.as_dict().items():
-    r[k] = [reroute(ip, host=_tpu_host()) for ip in v]
+    r[k] = [reroute(ip) for ip in v]
   return server_lib.ClusterSpec(r)
 
-@mock_method('patch_fetch_cloud_tpu_metadata', (client.Client if client is not None else resolver.TPUClusterResolver), '_fetch_cloud_tpu_metadata')
+@mock_method('patch_fetch_cloud_tpu_metadata', (client.Client if client is not None else tpu_cluster_resolver.TPUClusterResolver), '_fetch_cloud_tpu_metadata')
 def _fetch_cloud_tpu_metadata(orig, cls, self, *args, **kws):
   while True:
     try:
@@ -204,11 +232,41 @@ def _invert_topology(orig, cls, self):
         devices[x, y, z, core] = device
   return tasks, devices
 
+from tensorflow.python.tpu import device_assignment as device_assignment_lib
+
+# @mock_method('patch__device_assignment', device_assignment_lib, 'device_assignment')
+# def _device_assignment(orig, cls, topology, computation_shape=None, computation_stride=None, num_replicas=1, **kws):
+#   print('TKTK')
+#   value = orig(topology, computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=num_replicas, **kws)
+#   return value
+
+
+@contextmanager
+def patch_tensorflow():
+  tf.compat.v1.disable_eager_execution()
+  tf.compat.v1.logging.set_verbosity('DEBUG')
+  tf.compat.v1.enable_resource_variables()
+  dotenv_startup()
+  gin.enter_interactive_mode()
+  with activate_mocks():
+    result = yield
+    return result
+
+def patch_tensorflow_interactive():
+  patch = patch_tensorflow()
+  patch.__enter__()
+  return patch
+
+
+def interact():
+    import code
+    code.InteractiveConsole(locals=globals()).interact()
+
 
 from tensorflow.core.protobuf import config_pb2
 from tensorflow.core.protobuf import rewriter_config_pb2
 
-def get_tpu_session_config(resolver=None):
+def make_session_config():
   #session_config = config_pb2.ConfigProto(allow_soft_placement=True, isolate_session_state=True)
   rpc_options = config_pb2.RPCOptions()
   # Setting cache_rpc_response to true will enable sender side caching of
@@ -242,31 +300,40 @@ def get_tpu_session_config(resolver=None):
 
   # TODO: research this. What does it do?
   # session_config.share_cluster_devices_in_session = True
+
   return session_config
 
 
-@contextmanager
-def patch_tensorflow():
-  tf.compat.v1.disable_eager_execution()
-  tf.compat.v1.logging.set_verbosity('DEBUG')
-  tf.compat.v1.enable_resource_variables()
-  dotenv_startup()
-  with ExitStack() as exit_stack:
-    activate_mocks(exit_stack)
-    result = yield
-    return result
+def get_resolver(tpu=None, zone=None, project=None):
+  if tpu is None:
+    tpu = os.environ.get('TPU_NAME')
+  if zone is None:
+    zone = os.environ.get('TPU_ZONE')
+  if project is None:
+    project = os.environ.get('TPU_PROJECT')
+  try:
+    return TPUClusterResolver(tpu=tpu, zone=zone, project=project)
+  except ValueError:
+    pass
 
+def get_session(graph=None, resolver=None, config=None, interactive=False):
+  if graph is None:
+    graph = tf.compat.v1.get_default_graph()
+  if resolver is None:
+    resolver = get_resolver()
+  Session = tf.compat.v1.InteractiveSession if interactive else tf.compat.v1.Session
+  master = resolver.master() if resolver is not None else None
+  cluster_spec = resolver.cluster_spec() if resolver is not None else None
+  config = get_session_config(cluster_spec=cluster_spec) if config is None else config
+  return Session(master, graph=graph, config=config)
 
-def patch_tensorflow_interactive():
-  patch = patch_tensorflow()
-  patch.__enter__()
-  gin.enter_interactive_mode()
-  return patch
-
-def interact():
-    import code
-    code.InteractiveConsole(locals=globals()).interact()
-
+def get_session_config(cluster_spec=None, config=None):
+  if config is None:
+    config = make_session_config()
+  if cluster_spec is not None:
+    cluster_def = cluster_spec.as_cluster_def()
+    config.cluster_def.CopyFrom(cluster_def)
+  return config
 
 def clone_session(session=None, graph=None, interactive=False, **kws):
   if session is None:
@@ -277,7 +344,6 @@ def clone_session(session=None, graph=None, interactive=False, **kws):
   master = session.sess_str # is there a better way to do this?
   Session = (tf.compat.v1.InteractiveSession if interactive else tf.compat.v1.Session)
   return Session(master, graph=graph, config=config, **kws)
-
 
 def reset_session(session=None, graph=None, interactive=True, **kws):
   if session is None:
@@ -419,12 +485,29 @@ def print_device_assignment(device_assignment):
   print('=== num_replicas=%d num_cores_per_replica=%d ===' % (device_assignment.num_replicas, device_assignment.num_cores_per_replica))
   return device_assignment
 
+from google.protobuf.json_format import MessageToJson
+import json
+
+def pb_to_json(pb):
+  return json.loads(MessageToJson(pb))
+
+
+def tpu_shard(op, device_assignment=None, num_shards=None, outputs_from_all_shards=True, topology=None, **kws):
+  if topology is None:
+    topology = cached_topology()
+  if device_assignment is None:
+    device_assignment = get_device_assignment(topology=topology)
+  assert device_assignment is not None
+  if num_shards is None:
+    num_shards = len(device_assignment.core_assignment)
+  return tpu.shard(op, outputs_from_all_shards=outputs_from_all_shards, num_shards=num_shards, device_assignment=device_assignment, **kws)
+
 if __name__ == '__main__':
   _tf_patch = patch_tensorflow_interactive()
   if len(sys.argv) <= 1:
     tf1 = tf.compat.v1
 
-    session_config = get_tpu_session_config()
+    session_config = None
     
     master = None
     res = None
@@ -437,17 +520,17 @@ if __name__ == '__main__':
         res = TPUClusterResolver()
         master = res.get_master()
         cluster_spec = res.cluster_spec()
-        if cluster_spec:
-          cluster_def = cluster_spec.as_cluster_def()
-          session_config.cluster_def.CopyFrom(cluster_def)
-          job_names = set([job.name for job in cluster_def.job])
-          assert len(job_names) == 1
-          master_job = cluster_def.job[0].name
       elif 'TPU_IP' in os.environ:
         master = os.environ['TPU_IP'].replace('grpc://', '')
         if ':' not in master:
           master = master + ':8470'
-        master = 'grpc://' + master
+        master = reroute('grpc://' + master)
+      session_config = get_session_config(cluster_spec=cluster_spec)
+      if cluster_spec is not None:
+        cluster_def = cluster_spec.as_cluster_def()
+        job_names = set([job.name for job in cluster_def.job])
+        assert len(job_names) == 1
+        master_job = cluster_def.job[0].name
     except:
       import traceback
       traceback.print_exc()
