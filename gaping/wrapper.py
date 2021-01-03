@@ -276,20 +276,17 @@ def make_session_config():
   # while with it we'll be able to complete long steps (like complex
   # initializations) in the face of some network errors during RecvTensor.
   rpc_options.cache_rpc_response = True
-
   rewriter_config = rewriter_config_pb2.RewriterConfig(
     disable_model_pruning=True,
     disable_meta_optimizer=True,
     dependency_optimization=rewriter_config_pb2.RewriterConfig.OFF,
     fail_on_optimizer_errors=True,
     )
-
   graph_options = config_pb2.GraphOptions(
     rewrite_options=rewriter_config,
     place_pruned_graph=True,
     infer_shapes=True,
     )
-
   session_config = config_pb2.ConfigProto(
     graph_options=graph_options,
     allow_soft_placement=True,
@@ -297,10 +294,8 @@ def make_session_config():
     )
   # share variables across sessions on TPUs
   session_config.experimental.share_session_state_in_clusterspec_propagation = True
-
   # TODO: research this. What does it do?
   # session_config.share_cluster_devices_in_session = True
-
   return session_config
 
 
