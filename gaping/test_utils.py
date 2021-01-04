@@ -1,9 +1,10 @@
+import os
 import gin
 from tensorflow.python.platform import test
 mock = test.mock
 import numpy as np
 import tensorflow as tf
-import os
+import tensorflow.compat.v1 as tf1
 
 
 class GapingTestCase(tf.test.TestCase):
@@ -13,6 +14,9 @@ class GapingTestCase(tf.test.TestCase):
     super(GapingTestCase, self).setUp()
     # Clear the gin cofiguration.
     gin.clear_config()
+
+  def log(self, message, *args, **kws):
+    tf1.logging.info(message, *args, **kws)
 
   def bucket_path(self, *parts):
     return os.path.join(os.environ['TPU_BUCKET'], *parts)

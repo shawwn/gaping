@@ -1,8 +1,9 @@
 import os
 import sys
 sys.path += [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')]
-import tensorflow as tf
 
+import tensorflow as tf
+import tensorflow.compat.v1 as tf1
 
 from absl import flags
 from absl.testing import parameterized
@@ -16,10 +17,13 @@ class GapingTestCI(parameterized.TestCase, test_utils.GapingTestCase):
   def setUp(self):
     super().setUp()
 
+  def test_01_info(self):
+    self.log('cwd: %s', os.getcwd())
+    self.log('TF version: %s', tf.__version__)
+
   @parameterized.parameters([42,99])
-  def testBasic(self, value):
-    print('cwd: {!r}'.format(os.getcwd()))
-    print('value: {}'.format(value))
+  def test_02_basic_parameterized(self, value):
+    self.log('parameterized value: %s', value)
 
 
 if __name__ == "__main__":
