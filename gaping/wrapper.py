@@ -417,6 +417,8 @@ def get_tpu_name(tpu_or_resolver=None, zone=None, project=None):
     name = tpu_or_resolver._tpu
   if isinstance(name, bytes):
     name = name.decode('utf8')
+  if ':' in name and not name.startswith('grpc://'):
+    name = 'grpc://' + name
   return name
 
 def cached_topology(tpu=None, zone=None, project=None):
