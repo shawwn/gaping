@@ -34,7 +34,7 @@ class TpuTopologyTest(parameterized.TestCase, test_utils.GapingTestCase):
     proto = topology_pb2.TopologyProto()
     proto.ParseFromString(serialized)
     mesh_shape = np.array(proto.mesh_shape, dtype=np.int32)
-    print(pb_to_json(proto))
+    self.log(pb_to_json(proto))
     if proto.num_tasks < 0:
       raise ValueError("`num_tasks` must be >= 0; got {}".format(proto.num_tasks))
     if proto.num_tpu_devices_per_task < 0:
@@ -51,7 +51,7 @@ class TpuTopologyTest(parameterized.TestCase, test_utils.GapingTestCase):
     if any(coords < 0):
       raise ValueError("`device_coordinates` must be >= 0")
     coords = coords.reshape((proto.num_tasks, proto.num_tpu_devices_per_task, len(proto.mesh_shape)))
-    print(coords)
+    self.log(coords)
     if len(proto.device_coordinates) != expected_coordinates_size:
       raise ValueError("`device_coordinates` must have shape num_tasks ({}) * "
                        "num_tpu_devices_per_task ({}) * len(mesh_shape) ({}); "
@@ -64,8 +64,8 @@ class TpuTopologyTest(parameterized.TestCase, test_utils.GapingTestCase):
   def testTpuTopologyObject(self, serialized):
     topology = topology_lib.Topology(serialized=serialized)
     tasks, devices = topology._invert_topology()
-    print('tasks', tasks.shape, tasks)
-    print('devices', devices.shape, devices)
+    self.log('tasks   %s %s', tasks.shape, tasks)
+    self.log('devices %s %s', devices.shape, devices)
     
     
     

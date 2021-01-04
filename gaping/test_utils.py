@@ -19,5 +19,6 @@ class GapingTestCase(tf.test.TestCase):
     tf1.logging.info(message, *args, **kws)
 
   def bucket_path(self, *parts):
-    return os.path.join(os.environ['TPU_BUCKET'], *parts)
+    base = os.environ.get('MODEL_BUCKET') or os.environ['TPU_BUCKET']
+    return os.path.join(base, *parts)
 

@@ -533,6 +533,7 @@ if __name__ == '__main__':
     graph = tf.compat.v1.get_default_graph()
     sess = tf.compat.v1.InteractiveSession(master, graph=graph, config=session_config)
     devices = sess.list_devices()
+    pp(devices)
     cores = sorted([x.name for x in devices if ':TPU:' in x.name])
     num_cores = len(cores)
     print(cluster_def)
