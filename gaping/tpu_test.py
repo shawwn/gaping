@@ -24,8 +24,12 @@ class TpuTest(parameterized.TestCase, test_utils.GapingTestCase):
       self.assertTrue(any([':TPU:' in device.name for device in devices]))
 
   def test_002_tpu_graph(self):
-    with tf.Graph().as_default() as graph, self.session(graph=graph).as_default() as session:
+    with tf.Graph().as_default(), self.session().as_default() as session:
       self.assertNotEqual(session.graph, self.cached_session().graph)
+
+  def test_003_add_tpu_cpu(self):
+    with tf.Graph().as_default():
+      self.assertEqual(3, self.evaluate(tf.add(1, 2)))
 
 if __name__ == "__main__":
   import gaping.wrapper

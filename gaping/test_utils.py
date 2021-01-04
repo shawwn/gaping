@@ -8,6 +8,8 @@ import tensorflow.compat.v1 as tf1
 
 from gaping import wrapper
 
+from tensorflow.python.eager import context
+from tensorflow.python.framework import ops
 
 class GapingTestCase(tf.test.TestCase):
   """Base class for test cases."""
@@ -23,7 +25,7 @@ class GapingTestCase(tf.test.TestCase):
 
   def session(self, graph=None, config=None):
     if graph is None:
-      graph = tf1.get_default_session()
+      graph = ops.get_default_graph()
     session = wrapper.clone_session(self.cached_session(), graph=graph, config=config)
     return session
 
@@ -31,6 +33,26 @@ class GapingTestCase(tf.test.TestCase):
     if self._cached_session is None:
       self._cached_session = wrapper.create_session()
     return self._cached_session
+
+  def evaluate(self, tensors, **kws):
+    """Evaluates tensors and returns numpy values.
+
+    Args:
+      tensors: A Tensor or a nested list/tuple of Tensors.
+
+    Returns:
+      tensors numpy values.
+    """
+    if context.executing_eagerly():
+      raise NotImplementedError()
+      #return self._eval_helper(tensors)
+    else:
+      sess = ops.get_default_session()
+      if sess is None:
+        with self.session() as sess:
+          return sess.run(tensors, **kws)
+      else:
+        return sess.run(tensors, **kws)
 
   def log(self, message, *args, **kws):
     tf1.logging.info(message, *args, **kws)
