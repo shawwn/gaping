@@ -75,10 +75,10 @@ def _tpu_host():
   return os.environ.get('TPU_HOST')
 
 def reroute(addr, host=None):
-  if host is False:
-    return addr
   if host is None:
     host = _tpu_host()
+  if host is False:
+    return addr
   if addr.startswith('grpc://'):
     return 'grpc://' + reroute(addr[len('grpc://'):], host=host)
   if not re.match('[0-9]+[.][0-9]+[.][0-9]+[.][0-9]+[:]8470', addr):
