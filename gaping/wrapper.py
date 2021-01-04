@@ -530,6 +530,11 @@ def tpu_shard(op, device_assignment=None, num_shards=None, outputs_from_all_shar
     num_shards = len(device_assignment.core_assignment)
   return tpu_ops.shard(op, outputs_from_all_shards=outputs_from_all_shards, num_shards=num_shards, device_assignment=device_assignment, **kws)
 
+def tpu_id():
+  # TODO(iamtingchen): more elegant way to convert u32 to s32 for replica_id.
+  replica_id = tf.cast(tf.cast(xla.replica_id(), tf.uint32), tf.int32)
+  return replica_id
+
 if __name__ == '__main__':
   _tf_patch = patch_tensorflow_interactive()
   if len(sys.argv) <= 1:
