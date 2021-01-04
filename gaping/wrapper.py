@@ -180,6 +180,15 @@ def _fetch_cloud_tpu_metadata(orig, cls, self, *args, **kws):
       else:
         raise e
 
+@mock_method('topology_ensure_missing_devices', topology_lib.Topology, '__init__')
+def topology__init__(orig, cls, self, serialized=None, mesh_shape=None, device_coordinates=None, *args, **kws):
+  result = orig(self, serialized=serialized, mesh_shape=mesh_shape, device_coordinates=device_coordinates, *args, **kws)
+  if not hasattr(self, '_missing_devices'):
+    self._missing_devices = np.argwhere(self._topology_tasks < 0)
+  if not hasattr(self, 'missing_devices'):
+    self.missing_devices = self._missing_devices # a bit of a hack
+  return result
+
 @mock_method('patch__parse_topology', topology_lib.Topology, '_parse_topology')
 def _parse_topology(orig, cls, self, serialized=None, mesh_shape=None, device_coordinates=None):
   """Parses a serialized `TopologyProto` into `self`."""
@@ -456,6 +465,7 @@ def get_tpu_cores(core_ids=None, topology=None):
   return all_cores
 
 from tensorflow.python.tpu import device_assignment as device_assignment_lib
+from gaping.device import functional as device_fns
 
 def get_task_and_cores_to_replicas(topology=None):
   if topology is None:
@@ -467,27 +477,38 @@ def get_core_assignment(core_ids=None, topology=None):
     topology = cached_topology()
   return device_assignment_lib.DeviceAssignment(topology, [[topology.device_coordinates[i//8][i%8]] for i in core_ids])
 
-def adjust_computation_shape(shape, topology):
-  if shape is None:
-    return shape
-  rank = topology.device_coordinates.shape[-1]
-  if len(shape) == rank:
-    return shape
-  if len(shape) == 3 and rank == 4:
-    return [shape[0], shape[1], 1, shape[2]]
-  if len(shape) == 4 and rank == 3:
-    if shape[2] != 1:
-      raise ValueError("Expected computation shape index 2 to be 1")
-    return [shape[0], shape[1], shape[3]]
-  raise ValueError("Unexpected topology rank %d vs computation shape rank %d" % (rank, len(shape)))
-
-def get_device_assignment(computation_shape=None, computation_stride=None, *, num_replicas=None, topology=None):
+def get_device_assignment(computation_shape=None, computation_stride=None, *, num_replicas=None, topology=None, device_order_mode=device_fns.DeviceOrderMode.AUTO):
   if topology is None:
     topology = cached_topology()
   if topology is None:
     raise ValueError("topology is None")
-  computation_shape = adjust_computation_shape(computation_shape, topology=topology)
-  computation_stride = adjust_computation_shape(computation_stride, topology=topology)
+  if num_replicas is None:
+    # just try every possible value for num_replicas until we find the
+    # max for the specified computation shape and stride.
+    dev = None
+    core_count = get_tpu_total_core_count(topology=topology)
+    for i in range(core_count):
+      try:
+        dev = get_device_assignment(computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=i+1, topology=topology, device_order_mode=device_order_mode)
+        num_replicas = i+1
+      except ValueError:
+        if dev is None:
+          raise
+        return dev
+  return device_fns.device_assignment(
+      topology,
+      computation_shape=computation_shape,
+      computation_stride=computation_stride,
+      num_replicas=num_replicas,
+      device_order_mode=device_order_mode)
+
+def get_device_assignment_old(computation_shape=None, computation_stride=None, *, num_replicas=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  if topology is None:
+    raise ValueError("topology is None")
+  computation_shape = device_fns.adjust_computation_shape(computation_shape, topology=topology)
+  computation_stride = device_fns.adjust_computation_shape(computation_stride, topology=topology)
   if num_replicas is None:
     # just try every possible value for num_replicas until we find the
     # max for the specified computation shape and stride.
@@ -503,6 +524,16 @@ def get_device_assignment(computation_shape=None, computation_stride=None, *, nu
         return dev
   device_assignment = tf.tpu.experimental.DeviceAssignment.build(topology, computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=num_replicas)
   return device_assignment
+
+def get_device_assignment_info(device_assignment):
+  return [[{
+    'coordinate': device_assignment.coordinates(i,j),
+    'host': device_assignment.host_device(i,j),
+    'core': device_assignment.tpu_device(i,j),
+    'ordinal': device_assignment.tpu_ordinal(i,j),
+    }
+    for j in range(device_assignment.num_cores_per_replica)]
+    for i in range(device_assignment.num_replicas)]
 
 def print_device_assignment(device_assignment):
   [print('--- replica %d ---' % i) or [
