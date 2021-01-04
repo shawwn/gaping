@@ -329,13 +329,15 @@ def create_session(graph=None, resolver=None, config=None, interactive=False):
   Session = tf.compat.v1.InteractiveSession if interactive else tf.compat.v1.Session
   return Session(master, graph=graph, config=config)
 
-def clone_session(session=None, graph=None, interactive=False, **kws):
+def clone_session(session=None, graph=None, config=None, interactive=False, master=None, **kws):
   if session is None:
     session = tf.compat.v1.get_default_session()
   if graph is None:
     graph = session.graph
-  config = session._config # is there a better way to do this?
-  master = session.sess_str # is there a better way to do this?
+  if config is None:
+    config = session._config # is there a better way to do this?
+  if master is None:
+    master = session.sess_str # is there a better way to do this?
   Session = (tf.compat.v1.InteractiveSession if interactive else tf.compat.v1.Session)
   return Session(master, graph=graph, config=config, **kws)
 
