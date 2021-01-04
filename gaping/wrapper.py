@@ -304,6 +304,11 @@ def create_session_config():
   # session_config.share_cluster_devices_in_session = True
   return session_config
 
+from tensorflow.python.training import server_lib
+
+def cluster_spec_from_cluster_def(cluster_def):
+  return server_lib.ClusterSpec(cluster_def)
+
 def make_session_config(cluster_spec=None, config=None):
   if config is None:
     config = create_session_config()
