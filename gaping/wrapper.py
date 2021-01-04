@@ -70,6 +70,8 @@ except ImportError:
     client = None
 
 def _tpu_host():
+  if 'TPU_HOST' not in os.environ:
+    return False
   return os.environ.get('TPU_HOST')
 
 def reroute(addr, host=None):
