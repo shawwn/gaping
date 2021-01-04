@@ -266,7 +266,7 @@ def interact():
 from tensorflow.core.protobuf import config_pb2
 from tensorflow.core.protobuf import rewriter_config_pb2
 
-def make_session_config():
+def create_session_config():
   #session_config = config_pb2.ConfigProto(allow_soft_placement=True, isolate_session_state=True)
   rpc_options = config_pb2.RPCOptions()
   # Setting cache_rpc_response to true will enable sender side caching of
@@ -298,8 +298,15 @@ def make_session_config():
   # session_config.share_cluster_devices_in_session = True
   return session_config
 
+def make_session_config(cluster_spec=None, config=None):
+  if config is None:
+    config = create_session_config()
+  if cluster_spec is not None:
+    cluster_def = cluster_spec.as_cluster_def()
+    config.cluster_def.CopyFrom(cluster_def)
+  return config
 
-def get_resolver(tpu=None, zone=None, project=None):
+def create_resolver(tpu=None, zone=None, project=None):
   if tpu is None:
     tpu = os.environ.get('TPU_NAME')
   if zone is None:
@@ -311,24 +318,16 @@ def get_resolver(tpu=None, zone=None, project=None):
   except ValueError:
     pass
 
-def get_session(graph=None, resolver=None, config=None, interactive=False):
+def create_session(graph=None, resolver=None, config=None, interactive=False):
   if graph is None:
     graph = tf.compat.v1.get_default_graph()
   if resolver is None:
-    resolver = get_resolver()
-  Session = tf.compat.v1.InteractiveSession if interactive else tf.compat.v1.Session
+    resolver = create_resolver()
   master = resolver.master() if resolver is not None else None
   cluster_spec = resolver.cluster_spec() if resolver is not None else None
-  config = get_session_config(cluster_spec=cluster_spec) if config is None else config
+  config = create_session_config(cluster_spec=cluster_spec) if config is None else config
+  Session = tf.compat.v1.InteractiveSession if interactive else tf.compat.v1.Session
   return Session(master, graph=graph, config=config)
-
-def get_session_config(cluster_spec=None, config=None):
-  if config is None:
-    config = make_session_config()
-  if cluster_spec is not None:
-    cluster_def = cluster_spec.as_cluster_def()
-    config.cluster_def.CopyFrom(cluster_def)
-  return config
 
 def clone_session(session=None, graph=None, interactive=False, **kws):
   if session is None:
@@ -520,7 +519,7 @@ if __name__ == '__main__':
         if ':' not in master:
           master = master + ':8470'
         master = reroute('grpc://' + master)
-      session_config = get_session_config(cluster_spec=cluster_spec)
+      session_config = make_session_config(cluster_spec=cluster_spec)
       if cluster_spec is not None:
         cluster_def = cluster_spec.as_cluster_def()
         job_names = set([job.name for job in cluster_def.job])
