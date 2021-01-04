@@ -6,6 +6,7 @@
   "author": "Shawn Presser <shawnpresser@gmail.com>",
   "license": "MIT",
   "scripts": {
+    "setup-ci": "pip install -r requirements-ci.txt",
     "start": "PYTHONSTARTUP=gaping/wrapper.py PYTHONPATH=.:../mesh python3",
     "test": "python3 gaping/gaping_test.py"
   }
