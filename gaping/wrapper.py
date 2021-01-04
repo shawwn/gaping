@@ -467,10 +467,28 @@ def get_core_assignment(core_ids=None, topology=None):
     topology = cached_topology()
   return device_assignment_lib.DeviceAssignment(topology, [[topology.device_coordinates[i//8][i%8]] for i in core_ids])
 
+def adjust_computation_shape(shape, topology):
+  if shape is None:
+    return shape
+  rank = topology.device_coordinates.shape[-1]
+  if len(shape) == rank:
+    return shape
+  if len(shape) == 3 and rank == 4:
+    return [shape[0], shape[1], 1, shape[2]]
+  if len(shape) == 4 and rank == 3:
+    if shape[2] != 1:
+      raise ValueError("Expected computation shape index 2 to be 1")
+    return [shape[0], shape[1], shape[3]]
+  raise ValueError("Unexpected topology rank %d vs computation shape rank %d" % (rank, len(shape)))
+
 def get_device_assignment(computation_shape=None, computation_stride=None, *, num_replicas=None, topology=None):
   if topology is None:
     topology = cached_topology()
+  computation_shape = adjust_computation_shape(computation_shape)
+  computation_stride = adjust_computation_shape(computation_stride)
   if num_replicas is None:
+    # just try every possible value for num_replicas until we find the
+    # max for the specified computation shape and stride.
     dev = None
     core_count = get_tpu_total_core_count(topology=topology)
     for i in range(core_count):
@@ -493,6 +511,7 @@ def print_device_assignment(device_assignment):
       'ordinal': device_assignment.tpu_ordinal(i,j)}) for j in range(device_assignment.num_cores_per_replica)] for i in range(device_assignment.num_replicas)]
   print('=== num_replicas=%d num_cores_per_replica=%d ===' % (device_assignment.num_replicas, device_assignment.num_cores_per_replica))
   return device_assignment
+
 
 from google.protobuf.json_format import MessageToJson
 import json
