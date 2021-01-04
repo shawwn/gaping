@@ -108,22 +108,28 @@ mocks = globals().get('mocks') or NS(advice={}, deactivate=None, lock=threading.
 def mocks_active():
   return mocks.deactivate is not None
 
-def mock_method(unique_name, cls, name=None, doc=None):
+def mock_function(unique_name, lib, name=None, doc=None):
+  return mock_method(unique_name, lib, name=name, doc=doc, toplevel=True)
+
+def mock_method(unique_name, cls, name=None, doc=None, toplevel=False):
   def func(fn):
     nonlocal name
     if name is None:
       name = fn.__name__
     wrapped = getattr(cls, name)
     @functools.wraps(fn)
-    def _fn(self, *args, **kwargs):
-      return fn(wrapped, cls, self, *args, **kwargs)
+    def _fn(*args, **kwargs):
+      return fn(wrapped, cls, *args, **kwargs)
     if hasattr(wrapped, '__name__'):
       _fn.__name__ = wrapped.__name__
     if hasattr(wrapped, '__module__'):
       _fn.__module__ = wrapped.__module__
     if hasattr(wrapped, '__qualname__'):
       _fn.__qualname__ = wrapped.__qualname__
-    mocks.advice[unique_name] = lambda: mock.patch.object(cls, name, _fn)
+    if toplevel:
+      mocks.advice[unique_name] = lambda: mock.patch.object(cls, name, side_effect=_fn)
+    else:
+      mocks.advice[unique_name] = lambda: mock.patch.object(cls, name, _fn)
     return _fn
   return func
 
@@ -248,14 +254,6 @@ def _invert_topology(orig, cls, self):
         tasks[x, y, z, core] = task
         devices[x, y, z, core] = device
   return tasks, devices
-
-from tensorflow.python.tpu import device_assignment as device_assignment_lib
-
-# @mock_method('patch__device_assignment', device_assignment_lib, 'device_assignment')
-# def _device_assignment(orig, cls, topology, computation_shape=None, computation_stride=None, num_replicas=1, **kws):
-#   print('TKTK')
-#   value = orig(topology, computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=num_replicas, **kws)
-#   return value
 
 
 @contextmanager
@@ -467,6 +465,19 @@ def get_tpu_cores(core_ids=None, topology=None):
 from tensorflow.python.tpu import device_assignment as device_assignment_lib
 from gaping.device import functional as device_fns
 
+
+@mock_function('patch_device_assignment', device_assignment_lib, 'device_assignment',
+doc="""Ensures the ranks of the computation shapes match the TPU
+topology rank. Also, if num_replicas is None, use the max replica
+count.
+
+When e.g. your local tensorflow version is 1.15.3 but the TPU version
+is 2.3, the topology ranks no longer match. (TPU version 2.3 gives
+topology rank 4, whereas tensorflow 1.15.3 expects topology rank 3.)""")
+def _patched_device_assignment(original_fn, lib, topology, computation_shape=None, computation_stride=None, num_replicas=1, **kws):
+  return get_device_assignment(topology=topology, computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=num_replicas, **kws)
+  #return original_fn(topology, computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=num_replicas, **kws)
+
 def get_task_and_cores_to_replicas(topology=None):
   if topology is None:
     topology = cached_topology()
@@ -477,53 +488,20 @@ def get_core_assignment(core_ids=None, topology=None):
     topology = cached_topology()
   return device_assignment_lib.DeviceAssignment(topology, [[topology.device_coordinates[i//8][i%8]] for i in core_ids])
 
-def get_device_assignment(computation_shape=None, computation_stride=None, *, num_replicas=None, topology=None, device_order_mode=device_fns.DeviceOrderMode.AUTO):
+def get_device_assignment(computation_shape=None, *, num_replicas=None, computation_stride=None, topology=None, device_order_mode=device_fns.DeviceOrderMode.AUTO):
   if topology is None:
     topology = cached_topology()
   if topology is None:
     raise ValueError("topology is None")
   if num_replicas is None:
-    # just try every possible value for num_replicas until we find the
-    # max for the specified computation shape and stride.
-    dev = None
-    core_count = get_tpu_total_core_count(topology=topology)
-    for i in range(core_count):
-      try:
-        dev = get_device_assignment(computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=i+1, topology=topology, device_order_mode=device_order_mode)
-        num_replicas = i+1
-      except ValueError:
-        if dev is None:
-          raise
-        return dev
+    info = device_fns.get_computation_info(topology=topology, computation_shape=computation_shape, computation_stride=computation_stride)
+    num_replicas = info.max_replicas
   return device_fns.device_assignment(
       topology,
       computation_shape=computation_shape,
       computation_stride=computation_stride,
       num_replicas=num_replicas,
       device_order_mode=device_order_mode)
-
-def get_device_assignment_old(computation_shape=None, computation_stride=None, *, num_replicas=None, topology=None):
-  if topology is None:
-    topology = cached_topology()
-  if topology is None:
-    raise ValueError("topology is None")
-  computation_shape = device_fns.adjust_computation_shape(computation_shape, topology=topology)
-  computation_stride = device_fns.adjust_computation_shape(computation_stride, topology=topology)
-  if num_replicas is None:
-    # just try every possible value for num_replicas until we find the
-    # max for the specified computation shape and stride.
-    dev = None
-    core_count = get_tpu_total_core_count(topology=topology)
-    for i in range(core_count):
-      try:
-        dev = get_device_assignment(computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=i+1, topology=topology)
-        num_replicas = i+1
-      except ValueError:
-        if dev is None:
-          raise
-        return dev
-  device_assignment = tf.tpu.experimental.DeviceAssignment.build(topology, computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=num_replicas)
-  return device_assignment
 
 def get_device_assignment_info(device_assignment):
   return [[{
