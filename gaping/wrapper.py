@@ -103,7 +103,7 @@ mock = test.mock
 import threading
 from types import SimpleNamespace as NS
 
-mocks = globals().get('mocks') or NS(advice={}, deactivate=None, lock=threading.RLock())
+mocks = globals().get('mocks') or NS(advice=OrderedDict({}), deactivate=None, lock=threading.RLock())
 
 def mocks_active():
   return mocks.deactivate is not None
