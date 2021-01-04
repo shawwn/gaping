@@ -21,6 +21,12 @@ class GapingTestCase(tf.test.TestCase):
       self._cached_session.close()
       self._cached_session = None
 
+  def session(self, graph=None, config=None):
+    if graph is None:
+      graph = tf1.get_default_session()
+    session = wrapper.clone_session(self.cached_session(), graph=graph, config=config)
+    return session
+
   def cached_session(self):
     if self._cached_session is None:
       self._cached_session = wrapper.create_session()
@@ -35,6 +41,8 @@ class GapingTestCase(tf.test.TestCase):
 
   def setUp(self):
     super(GapingTestCase, self).setUp()
+    # Create the cached session.
+    self.cached_session()
     # Clear the gin cofiguration.
     gin.clear_config()
 

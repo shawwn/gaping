@@ -325,7 +325,7 @@ def create_session(graph=None, resolver=None, config=None, interactive=False):
     resolver = create_resolver()
   master = resolver.master() if resolver is not None else None
   cluster_spec = resolver.cluster_spec() if resolver is not None else None
-  config = create_session_config(cluster_spec=cluster_spec) if config is None else config
+  config = make_session_config(cluster_spec=cluster_spec) if config is None else config
   Session = tf.compat.v1.InteractiveSession if interactive else tf.compat.v1.Session
   return Session(master, graph=graph, config=config)
 
