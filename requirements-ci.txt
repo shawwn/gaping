@@ -1,1 +1,2 @@
 tensorflow==1.15.3
+oauth2client>=4.1.3
