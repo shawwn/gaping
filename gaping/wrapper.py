@@ -484,8 +484,10 @@ def adjust_computation_shape(shape, topology):
 def get_device_assignment(computation_shape=None, computation_stride=None, *, num_replicas=None, topology=None):
   if topology is None:
     topology = cached_topology()
-  computation_shape = adjust_computation_shape(computation_shape)
-  computation_stride = adjust_computation_shape(computation_stride)
+  if topology is None:
+    raise ValueError("topology is None")
+  computation_shape = adjust_computation_shape(computation_shape, topology=topology)
+  computation_stride = adjust_computation_shape(computation_stride, topology=topology)
   if num_replicas is None:
     # just try every possible value for num_replicas until we find the
     # max for the specified computation shape and stride.
