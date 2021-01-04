@@ -76,7 +76,7 @@ class GapingTestCase(tf.test.TestCase):
     return os.path.join(base, *parts)
 
   def setUp(self):
-    super(GapingTestCase, self).setUp()
+    super().setUp()
     # Create the cached session.
     self.cached_session()
     # Clear the gin cofiguration.
