@@ -9,6 +9,7 @@ from absl import flags
 from absl.testing import parameterized
 
 from gaping import test_utils
+from gaping import wrapper
 
 
 class TpuTest(parameterized.TestCase, test_utils.GapingTestCase):
@@ -30,6 +31,14 @@ class TpuTest(parameterized.TestCase, test_utils.GapingTestCase):
   def test_003_add_tpu_cpu(self):
     with tf.Graph().as_default():
       self.assertEqual(3, self.evaluate(tf.add(1, 2)))
+
+  def tpu_core_count(self):
+    return 8 # TODO
+
+  def test_003_add_tpu_cores(self):
+    with tf.Graph().as_default():
+      n = self.tpu_core_count()
+      self.assertAllEqual([[3]*n], self.evaluate(wrapper.tpu_shard(lambda: tf.add(1, 2))))
 
 if __name__ == "__main__":
   import gaping.wrapper

@@ -49,8 +49,14 @@ from tensorflow.python.util import compat
 
 from tensorflow.core.protobuf.tpu import topology_pb2
 from tensorflow.python.tpu import topology as topology_lib
+from tensorflow.python.tpu import tpu_strategy_util
+from tensorflow.python.tpu import tpu as tpu_ops
+from tensorflow.compiler.tf2xla.python import xla
+from tensorflow.compiler.tf2xla.ops import gen_xla_ops
+from tensorflow.python.tpu import topology as topology_lib
 
 import gin
+from importlib import reload
 
 try:
   from cloud_tpu_client import client  # pylint: disable=g-import-not-at-top
@@ -496,7 +502,7 @@ def tpu_shard(op, device_assignment=None, num_shards=None, outputs_from_all_shar
   assert device_assignment is not None
   if num_shards is None:
     num_shards = len(device_assignment.core_assignment)
-  return tpu.shard(op, outputs_from_all_shards=outputs_from_all_shards, num_shards=num_shards, device_assignment=device_assignment, **kws)
+  return tpu_ops.shard(op, outputs_from_all_shards=outputs_from_all_shards, num_shards=num_shards, device_assignment=device_assignment, **kws)
 
 if __name__ == '__main__':
   _tf_patch = patch_tensorflow_interactive()
@@ -540,12 +546,6 @@ if __name__ == '__main__':
     print(cluster_def)
     print('cores: %d ip: %s' % (num_cores, master))
     r = sess.run
-    from importlib import reload
-    from tensorflow.python.tpu import tpu as tpu_ops
-    from tensorflow.compiler.tf2xla.python import xla
-    from tensorflow.compiler.tf2xla.ops import gen_xla_ops
-    from tensorflow.python.tpu import tpu_strategy_util
-    from tensorflow.python.tpu import topology as topology_lib
     tpu_topology = None
     if num_cores > 0:
       tpu_topology = cached_topology()

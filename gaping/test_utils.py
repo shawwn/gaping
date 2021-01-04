@@ -11,6 +11,8 @@ from gaping import wrapper
 from tensorflow.python.eager import context
 from tensorflow.python.framework import ops
 
+_cached_tpu_topology = None
+
 class GapingTestCase(tf.test.TestCase):
   """Base class for test cases."""
 
@@ -29,9 +31,21 @@ class GapingTestCase(tf.test.TestCase):
     session = wrapper.clone_session(self.cached_session(), graph=graph, config=config)
     return session
 
+  @property
+  def topology(self):
+    return _cached_tpu_topology
+
+  @topology.setter
+  def topology(self, value):
+    global _cached_tpu_topology
+    _cached_tpu_topology = value
+
   def cached_session(self):
     if self._cached_session is None:
       self._cached_session = wrapper.create_session()
+      if self.topology is None and 'TPU_NAME' in os.environ:
+        # Get the TPU topology.
+        self.topology = wrapper.get_topology(force=bool(int(os.getenv('TPU_INIT', '0'))))
     return self._cached_session
 
   def evaluate(self, tensors, **kws):
