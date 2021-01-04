@@ -713,12 +713,14 @@ def get_computation_info(topology, computation_shape=None, computation_stride=No
   info.max_replicas = max_replicas
   return info
 
-def get_computation_replica_shape(info, num_replicas=None):
-  topology_rank = len(info.mesh_shape)
-  replica_counts = info.replica_counts
-  replica_shape = [0] * topology_rank
+def get_computation_replica_shape(topology, replica_counts, num_replicas=None):
+  replica_counts = adjust_computation_shape(replica_counts, topology)
+  max_replicas = np.prod(replica_counts)
+  mesh_shape = topology.mesh_shape
+  topology_rank = get_topology_rank(topology)
   if num_replicas is None:
-    num_replicas = info.max_replicas
+    num_replicas = max_replicas
+  replica_shape = [0] * topology_rank
   if num_replicas > 0:
     remaining_replicas = num_replicas
     remaining_dims = topology_rank
