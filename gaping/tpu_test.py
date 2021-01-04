@@ -52,6 +52,9 @@ class TpuTest(parameterized.TestCase, test_utils.GapingTestCase):
       self.assertAllEqual([[[2.], [1.], [4.], [3.], [6.], [5.], [8.], [7.]]],
           self.evaluate(wrapper.tpu_shard(on_cores, inputs=inputs)))
 
+  def test_005_fail(self):
+    self.assertEqual(True, False)
+
 
 if __name__ == "__main__":
   import gaping.wrapper
