@@ -7,8 +7,8 @@
   "license": "MIT",
   "scripts": {
     "start": "PYTHONSTARTUP=gaping/wrapper.py PYTHONPATH=.:../mesh python3",
-    "test": "python3 gaping/gaping_test.py",
+    "test": "python3 gaping/gaping_test_ci.py",
     "setup-ci": "pip install -r requirements-ci-pip.txt && pip install -r requirements-ci.txt && pip install -r requirements.txt",
-    "test-ci": "python3 gaping/gaping_test_ci.py"
+    "test-tpu": "python3 gaping/gaping_test.py"
   }
 }
