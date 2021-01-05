@@ -1901,7 +1901,8 @@ class FooModel(Module):
       return x
 
 
-relu = tf.nn.relu
+def relu(input, inplace=False, name=None):
+  return tf.nn.relu(input, name=name)
 
 
 def linear(input, weight, bias=None):
@@ -1967,7 +1968,7 @@ class Linear(Module):
     out_features: int
     weight: Tensor
 
-    def __init__(self, in_features: int, out_features: int, bias: bool = True, scope='linear', **kwargs) -> None:
+    def __init__(self, in_features: int, out_features: int, bias: bool = True, scope='linear', weight_name=None, bias_name=None, **kwargs) -> None:
         super(Linear, self).__init__(scope=scope, **kwargs)
         with self.scope():
           self.in_features = in_features
@@ -1982,9 +1983,9 @@ class Linear(Module):
           #   self.bias = tf.Variable(tf.zeros(shape=[out_features]), use_resource=True, name="b")
           # else:
           #   self.bias = None
-          self.weight = self.globalvar('w', shape=[in_features, out_features])
+          self.weight = self.globalvar(weight_name or 'w', shape=[in_features, out_features])
           if bias:
-            self.bias = self.globalvar('b', shape=[out_features])
+            self.bias = self.globalvar(bias_name or 'b', shape=[out_features])
           else:
             self.bias = None
           self.reset_parameters()
@@ -2024,7 +2025,13 @@ def assert_shape(lhs, shape):
 def shapelist(x):
   if hasattr(x, 'shape'):
     x = x.shape
-  return x.as_list()
+  if hasattr(x, 'as_list'):
+    x = x.as_list()
+  if isinstance(x, (list, tuple)):
+    return list(x)
+  if isinstance(x, (int, float, bool, str, bytes)):
+    return [1]
+  raise ValueError("Unknown shapelist input type: {!r}".format(x))
 
 
 def size(tensor, index=None):
@@ -2371,6 +2378,8 @@ class _ConvNd(Module):
       bias,
       padding_mode,
       scope=None,
+      weight_name=None,
+      bias_name=None,
       **kwargs):
     super(_ConvNd, self).__init__(scope=scope, **kwargs)
     if in_channels % groups != 0:
@@ -2394,11 +2403,11 @@ class _ConvNd(Module):
       self.groups = groups
       self.padding_mode = padding_mode
       if transposed:
-        self.weight = self.globalvar('w', shape=[*kernel_size, out_channels, in_channels // groups])
+        self.weight = self.globalvar(weight_name or 'w', shape=[*kernel_size, out_channels, in_channels // groups])
       else:
-        self.weight = self.globalvar('w', shape=[*kernel_size, in_channels, out_channels // groups])
+        self.weight = self.globalvar(weight_name or 'w', shape=[*kernel_size, in_channels, out_channels // groups])
       if bias:
-        self.bias = self.globalvar('b', shape=[out_channels])
+        self.bias = self.globalvar(bias_name or 'b', shape=[out_channels])
       else:
         self.bias = None
     self.reset_parameters()
@@ -2603,7 +2612,9 @@ class Conv2d(_ConvNd):
         data_format = 'NHWC'
         padding = self.padding
         if isinstance(padding, (list, tuple)):
-          padding = [[0, 0], padding, padding, [0, 0]]
+          #padding = [[0, 0], padding, padding, [0, 0]]
+          p = padding
+          padding = [[0, 0], [p[0], p[0]], [p[1], p[1]], [0, 0]]
         #padding = [[0, 0], self.padding, self.padding, [0, 0]]
         #padding = 'VALID'
         #padding = 'SAME'
@@ -2676,7 +2687,7 @@ upsample = interpolate
 downsample = partial(pool, kernel_size=2)
 
 
-def max_pool2d(input, kernel_size, stride, padding="SAME", dilation=1, ceil_mode=False, return_indices=False, *, data_format="NHWC", name=None):
+def max_pool2d(input, kernel_size, stride, padding="VALID", dilation=1, ceil_mode=False, return_indices=False, *, data_format="NHWC", name=None):
   if dilation != 1:
     import pdb; pdb.set_trace()
     raise NotImplementedError()
@@ -2949,6 +2960,14 @@ class MaxPool3d(_MaxPoolNd):
                               self.return_indices)
 
 
+class _AvgPoolNd(Module):
+    __constants__ = ['kernel_size', 'stride', 'padding', 'ceil_mode', 'count_include_pad']
+
+    def extra_repr(self) -> str:
+        return 'kernel_size={}, stride={}, padding={}'.format(
+            self.kernel_size, self.stride, self.padding
+        )
+
 
 def avg_pool2d(input, kernel_size, stride=None, padding=0, data_format="NHWC", name=None):
   kernel_size = _pair(kernel_size)
@@ -2965,7 +2984,7 @@ def avg_pool2d(input, kernel_size, stride=None, padding=0, data_format="NHWC", n
   #return tf.nn.pool(input, kernel_size, "AVG", "SAME", strides=strides, name=name)
 
 
-class AvgPool2d(Module):
+class AvgPool2d(_AvgPoolNd):
   def __init__(self,
       kernel_size,
       stride=None,
@@ -2977,9 +2996,279 @@ class AvgPool2d(Module):
       self.kernel_size = _pair(kernel_size)
       self.stride = _pair(kernel_size if stride is None else stride)
       self.padding = padding
+
   def forward(self, input):
     with self.scope():
       return avg_pool2d(input, self.kernel_size, self.stride, self.padding)
+
+
+def adaptive_pool2d(input, output_size, reduce_function, data_format="NHWC", return_indices=False, name=None):
+  TORCH_CHECK(return_indices is False,
+      "return_indices not yet implemented")
+  TORCH_CHECK(data_format in ["NCHW", "NHWC"],
+      "data_format must be NCHW or NHWC")
+  with ops.name_scope(name, 'adaptive_pool2d'):
+    output_size = _pair(output_size)
+    h_bins, w_bins = output_size
+    if data_format == 'NHWC':
+      split_cols = tf.split(input, h_bins, axis=1)
+      split_cols = tf.stack(split_cols, axis=1)
+      split_rows = tf.split(split_cols, w_bins, axis=3)
+      split_rows = tf.stack(split_rows, axis=3)
+      out_vect = reduce_function(split_rows, axis=[2, 4])
+    else:
+      split_cols = tf.split(input, h_bins, axis=2)
+      split_cols = tf.stack(split_cols, axis=2)
+      split_rows = tf.split(split_cols, w_bins, axis=4)
+      split_rows = tf.stack(split_rows, axis=4)
+      out_vect = reduce_function(split_rows, axis=[3, 5])
+    return out_vect
+
+adaptive_max_pool2d = partial(adaptive_pool2d, reduce_function=tf.reduce_max)
+adaptive_avg_pool2d = partial(adaptive_pool2d, reduce_function=tf.reduce_mean)
+
+
+class _AdaptiveMaxPoolNd(Module):
+    __constants__ = ['output_size', 'return_indices']
+    return_indices: bool
+
+    def __init__(self, output_size: _size_any_t, data_format: str = "NHWC", return_indices: bool = False, scope=None, **kws) -> None:
+        if scope is None:
+            scope = 'adaptive_max_pool{}d'.format(dim(output_size))
+        super(_AdaptiveMaxPoolNd, self).__init__(scope=scope, **kws)
+        with self.scope():
+          self.data_format = data_format
+          self.output_size = output_size
+          self.return_indices = return_indices
+          if return_indices:
+              raise NotImplementedError() # TODO
+
+    def extra_repr(self) -> str:
+        return 'output_size={} data_format={}'.format(self.output_size, self.data_format)
+
+
+class AdaptiveMaxPool2d(_AdaptiveMaxPoolNd):
+    r"""Applies a 2D adaptive max pooling over an input signal composed of several input planes.
+
+    The output is of size H x W, for any input size.
+    The number of output features is equal to the number of input planes.
+
+    Args:
+        output_size: the target output size of the image of the form H x W.
+                     Can be a tuple (H, W) or a single H for a square image H x H.
+                     H and W can be either a ``int``, or ``None`` which means the size will
+                     be the same as that of the input.
+        return_indices: if ``True``, will return the indices along with the outputs.
+                        Useful to pass to nn.MaxUnpool2d. Default: ``False``
+
+    Examples:
+        >>> # target output size of 5x7
+        >>> m = nn.AdaptiveMaxPool2d((5,7))
+        >>> input = torch.randn(1, 64, 8, 9)
+        >>> output = m(input)
+        >>> # target output size of 7x7 (square)
+        >>> m = nn.AdaptiveMaxPool2d(7)
+        >>> input = torch.randn(1, 64, 10, 9)
+        >>> output = m(input)
+        >>> # target output size of 10x7
+        >>> m = nn.AdaptiveMaxPool2d((None, 7))
+        >>> input = torch.randn(1, 64, 10, 9)
+        >>> output = m(input)
+
+    """
+
+    output_size: _size_2_t
+
+    def forward(self, input: Tensor) -> Tensor:
+        with self.scope():
+            return adaptive_max_pool2d(
+                input,
+                self.output_size,
+                data_format=self.data_format,
+                return_indices=self.return_indices,
+                name=self.get_scope_name())
+
+
+
+class _AdaptiveAvgPoolNd(Module):
+    __constants__ = ['output_size', 'return_indices']
+    return_indices: bool
+
+    def __init__(self, output_size: _size_any_t, data_format: str = "NHWC", return_indices: bool = False, scope=None, **kws) -> None:
+        if scope is None:
+            scope = 'adaptive_avg_pool{}d'.format(dim(output_size))
+        super(_AdaptiveAvgPoolNd, self).__init__(scope=scope, **kws)
+        with self.scope():
+          self.data_format = data_format
+          self.output_size = output_size
+          self.return_indices = return_indices
+          if return_indices:
+              raise NotImplementedError() # TODO
+
+    def extra_repr(self) -> str:
+        return 'output_size={} data_format={}'.format(self.output_size, self.data_format)
+
+
+class AdaptiveAvgPool2d(_AdaptiveAvgPoolNd):
+    r"""Applies a 2D adaptive average pooling over an input signal composed of several input planes.
+
+    The output is of size H x W, for any input size.
+    The number of output features is equal to the number of input planes.
+
+    Args:
+        output_size: the target output size of the image of the form H x W.
+                     Can be a tuple (H, W) or a single H for a square image H x H.
+                     H and W can be either a ``int``, or ``None`` which means the size will
+                     be the same as that of the input.
+
+    Examples:
+        >>> # target output size of 5x7
+        >>> m = nn.AdaptiveAvgPool2d((5,7))
+        >>> input = torch.randn(1, 64, 8, 9)
+        >>> output = m(input)
+        >>> # target output size of 7x7 (square)
+        >>> m = nn.AdaptiveAvgPool2d(7)
+        >>> input = torch.randn(1, 64, 10, 9)
+        >>> output = m(input)
+        >>> # target output size of 10x7
+        >>> m = nn.AdaptiveAvgPool2d((None, 7))
+        >>> input = torch.randn(1, 64, 10, 9)
+        >>> output = m(input)
+
+    """
+
+    output_size: _size_2_t
+
+    def forward(self, input: Tensor) -> Tensor:
+        with self.scope():
+            return adaptive_avg_pool2d(
+                input,
+                self.output_size,
+                data_format=self.data_format,
+                return_indices=self.return_indices,
+                name=self.get_scope_name())
+
+
+
+
+# def shape_nhwc_to_nchw(DIM, input, data_format="NHWC"):
+#   has_batch = dim(input) == DIM + 2
+#   if data_format == "NHWC":
+#     if has_batch:
+#       input = list(np.array(size(input))[[0,3,1,2]])
+#     else:
+#       input = list(np.array(size(input))[[2,0,1]])
+#   return input
+
+# def shape_nchw_to_nhwc(DIM, input, data_format="NHWC"):
+#   has_batch = dim(input) == DIM + 2
+#   if data_format == "NHWC":
+#     if has_batch:
+#       input = list(np.array(size(input))[[0,2,3,1]])
+#     else:
+#       input = list(np.array(size(input))[[1,2,0]])
+#   return input
+
+# def get_output_shape(DIM, input, output_size, data_format="NHWC"):
+#   TORCH_CHECK(data_format in ["NCHW", "NHWC"],
+#       "data_format must be NCHW or NHWC")
+#   for i in range(1, dim(input)):
+#     TORCH_CHECK(
+#         size(input, i) > 0,
+#         "adaptive_avg_pooling", DIM, "d(): ",
+#         "expected input to have non-empty spatial "
+#         "dimensions, but input has sizes ",
+#         size(input),
+#         " with dimension ",
+#         i,
+#         " being empty")
+#   TORCH_CHECK(
+#       (dim(input) == DIM + 1 or dim(input) == DIM + 2),
+#       "non-empty ",
+#       DIM + 1,
+#       "D or ",
+#       DIM + 2,
+#       "D (batch mode) tensor expected for input");
+#   input = shape_nhwc_to_nchw(DIM, input, data_format=data_format)
+#   # Channels
+#   sizeC = size(input, -(DIM+1))
+#   output_shape = []
+#   if dim(input) == DIM + 2:
+#     # Include Batch
+#     output_shape.append(size(input, 0))
+#   output_shape.append(sizeC)
+#   for size_ in output_size:
+#     output_shape.append(size_)
+#   output_shape = shape_nchw_to_nhwc(DIM, output_shape, data_format=data_format)
+#   return output_shape;
+
+
+# # def adaptive_avg_pool2d(input, output_size, data_format="NHWC", name=None):
+# #   kSpatialDim = 2
+# #   output_shape = get_output_shape(2, input, output_size, data_format=data_format)
+# #   input = shape_nhwc_to_nchw(2, input, data_format=data_format)
+# #   # sizes
+# #   sizeC = size(input, -(kSpatialDim + 1))
+# #   isizeD = 1 if kSpatialDim == 2 else size(input, -3)
+# #   isizeH = size(input, -2)
+# #   isizeW = size(input, -1)
+# #   # # strides
+# #   # istrideC = input.stride(-(kSpatialDim + 1))
+# #   # istrideD = kSpatialDim == 2 ? 1 : input.stride(-3)
+# #   # istrideH = input.stride(-2)
+# #   # istrideW = input.stride(-1)
+# #   osizeD = 1 if kSpatialDim == 2 else output_shape[len(output_shape) - 3]
+# #   osizeH = output_shape[len(output_shape) - 2]
+# #   osizeW = output_shape[len(output_shape) - 1]
+# #   return osizeD, osizeH, osizeW, sizeC
+
+# def safe_downcast_int(i):
+#   return int(i) # TODO
+
+# def get_kernel(kernel_size):
+#   kernel_size = _pair(kernel_size)
+#   TORCH_CHECK(
+#       dim(kernel_size) == 1 or dim(kernel_size) == 2,
+#       "avg_pool2d: kernel_size must either be a single int, or a tuple of two ints");
+#   kH = safe_downcast_int(kernel_size[0])
+#   kW = kH if dim(kernel_size) == 1 else safe_downcast_int(kernel_size[1])
+#   return [kW, kH]
+
+# def get_stride(stride, kW, kH):
+#   stride = _pair(stride)
+#   TORCH_CHECK(
+#       dim(stride) == 0 or dim(stride) == 1 or dim(stride) == 2,
+#       "avg_pool2d: stride must either be omitted, a single int, or a tuple of two ints")
+#   dH = kH if dim(stride) == 0 else safe_downcast_int(stride[0])
+#   dW = kW if dim(stride) == 0 else (dH if dim(stride) == 1 else safe_downcast_int(stride[1]))
+#   return [dW, dH]
+
+# # inline std::pair<int, int> get_padding(IntArrayRef padding) {
+# #   TORCH_CHECK(
+# #       padding.size() == 1 || padding.size() == 2,
+# #       "avg_pool2d: padding must either be a single int, or a tuple of two ints");
+# #   const int padH = safe_downcast<int, int64_t>(padding[0]);
+# #   const int padW =
+# #       padding.size() == 1 ? padH : safe_downcast<int, int64_t>(padding[1]);
+# #   return std::make_pair(padW, padH);
+# # }
+
+# def adaptive_pool2d(input, output_size, data_format="NHWC", name=None):
+#   input_shape = shape_nhwc_to_nchw(2, input, data_format=data_format)
+#   output_shape = get_output_shape(2, input_shape, output_size, data_format="NCHW")
+#   output_height = output_shape[dim(output_shape) - 2]
+#   output_width = output_shape[dim(output_shape) - 1]
+#   input_height = size(input_shape)[dim(input_shape) - 2]
+#   input_width = size(input_shape)[dim(input_shape) - 1]
+#   stride = [-1, -1]
+#   stride[0] = int(math.ceil(input_height / output_height))
+#   stride[1] = int(math.ceil(input_width / output_width))
+#   # Given the constraint that input_height/width % output_height/width == 0
+#   # stride and kernel size are same.
+#   kernel_size = [-1, -1]
+#   kernel_size[0] = stride[0]
+#   kernel_size[1] = stride[1]
+#   return stride, kernel_size
 
 
 def softmax(input, dim, name=None):
@@ -2994,9 +3283,13 @@ class Softmax(Module):
     super().__init__(scope=scope, **kwargs)
     with self.scope():
       self.dim = dim
+
   def forward(self, input):
     with self.scope():
       return softmax(input, dim=self.dim)
+
+  def extra_repr(self) -> str:
+    return 'dim={dim}'.format(dim=self.dim)
 
 
 def bmm(input, mat2, transpose_a=False, transpose_b=False, name=None):
@@ -3405,12 +3698,12 @@ class BatchNorm3d(_BatchNorm):
 
 class Embedding(Module):
   def __init__(self, num_embeddings, embedding_dim, max_norm=None, scope=None, **kwargs):
-    super().__init__(scope=scope, **kwargs)
+    super().__init__(scope=scope, weight_name=None, **kwargs)
     self.num_embeddings = num_embeddings
     self.embedding_dim = embedding_dim
     self.max_norm = max_norm
     with self.scope():
-      self.weight = self.globalvar('w', shape=[num_embeddings, embedding_dim])
+      self.weight = self.globalvar(weight_name or 'w', shape=[num_embeddings, embedding_dim])
 
   def forward(self, input):
     with self.scope():
@@ -3496,8 +3789,7 @@ Example::
 
 from typing import Tuple, Union
 
-class Size:
-  pass # TODO
+Size = tf.TensorShape
 
 
 class Flatten(Module):
@@ -3809,3 +4101,84 @@ class ResidualBlockWithShortcut(ModuleDict):
             output_main = self.main(clone(input))
             output_shortcut = self.shortcut(input)
             return output_main + output_shortcut
+
+
+def dropout(input, p=0.5, training=True, inplace=False, seed=None, name=None):
+    # type: (Tensor, float, bool, bool) -> Tensor
+    r"""
+    During training, randomly zeroes some of the elements of the input
+    tensor with probability :attr:`p` using samples from a Bernoulli
+    distribution.
+
+    See :class:`~torch.nn.Dropout` for details.
+
+    Args:
+        p: probability of an element to be zeroed. Default: 0.5
+        training: apply dropout if is ``True``. Default: ``True``
+        inplace: If set to ``True``, will do this operation in-place. Default: ``False``
+    """
+    return tf.nn.dropout(input, rate=p, seed=seed, name=name)
+
+
+
+class _DropoutNd(Module):
+    __constants__ = ['p', 'inplace']
+    p: float
+    inplace: bool
+
+    def __init__(self, p: float = 0.5, inplace: bool = False, seed=None, scope='dropout', **kws) -> None:
+        super(_DropoutNd, self).__init__(scope=scope, **kws)
+        with self.scope():
+            if p < 0 or p > 1:
+                raise ValueError("dropout probability has to be between 0 and 1, "
+                                 "but got {}".format(p))
+            self.p = p
+            self.inplace = inplace
+            self.seed = seed
+            TORCH_CHECK(inplace is False,
+                "inplace not yet implemented")
+
+    def extra_repr(self) -> str:
+        if seed is not None:
+          return 'p={}, seed={}'.format(self.p, self.seed)
+        else:
+          return 'p={}'.format(self.p)
+
+
+class Dropout(_DropoutNd):
+    r"""During training, randomly zeroes some of the elements of the input
+    tensor with probability :attr:`p` using samples from a Bernoulli
+    distribution. Each channel will be zeroed out independently on every forward
+    call.
+
+    This has proven to be an effective technique for regularization and
+    preventing the co-adaptation of neurons as described in the paper
+    `Improving neural networks by preventing co-adaptation of feature
+    detectors`_ .
+
+    Furthermore, the outputs are scaled by a factor of :math:`\frac{1}{1-p}` during
+    training. This means that during evaluation the module simply computes an
+    identity function.
+
+    Args:
+        p: probability of an element to be zeroed. Default: 0.5
+        inplace: If set to ``True``, will do this operation in-place. Default: ``False``
+
+    Shape:
+        - Input: :math:`(*)`. Input can be of any shape
+        - Output: :math:`(*)`. Output is of the same shape as input
+
+    Examples::
+
+        >>> m = nn.Dropout(p=0.2)
+        >>> input = torch.randn(20, 16)
+        >>> output = m(input)
+
+    .. _Improving neural networks by preventing co-adaptation of feature
+        detectors: https://arxiv.org/abs/1207.0580
+    """
+
+    def forward(self, input: Tensor) -> Tensor:
+        with self.scope():
+            return dropout(input, p=self.p, training=self.training, inplace=self.inplace, seed=self.seed)
+
