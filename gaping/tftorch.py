@@ -4352,7 +4352,10 @@ def dropout(input, p=0.5, training=True, inplace=False, seed=None, name=None):
         training: apply dropout if is ``True``. Default: ``True``
         inplace: If set to ``True``, will do this operation in-place. Default: ``False``
     """
-    return tf.nn.dropout(input, rate=p, seed=seed, name=name)
+    if not training:
+      return input
+    else:
+      return tf.nn.dropout(input, rate=p, seed=seed, name=name)
 
 
 
