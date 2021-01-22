@@ -53,7 +53,9 @@ class InceptionTest(parameterized.TestCase, test_utils.GapingTestCase):
       def get_fid(reals, fakes):
         pool1 = session.run(images_out[0], {images_in: reals})
         pool2 = session.run(images_out[0], {images_in: fakes})
-        return inception_utils.numpy_calculate_fid(model, pool1, pool2)
+        mean, cov = inception_utils.numpy_calculate_fid(pool1, pool2)
+        print(mean, cov)
+        return mean + cov
       def measure_fid(fid_low, fid_high, reals, fakes):
         fid = get_fid(reals, fakes)
         fid_low = either(fid_low, -float('inf'))

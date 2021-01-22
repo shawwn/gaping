@@ -275,7 +275,7 @@ class MeasureFID(parameterized.TestCase, test_utils.GapingTestCase):
     self.fakes_set = datasets.DatasetFolder(self.args.fakes, transform=self.transform, target_transform=None, extensions=extensions, loader=pil_loader) if self.args.fakes else None
     self.reals_loader = DataLoader(dataset=self.reals_set, num_workers=self.args.num_workers, batch_size=self.args.batch_size, shuffle=True)
     self.fakes_loader = DataLoader(dataset=self.fakes_set, num_workers=self.args.num_workers, batch_size=self.args.batch_size, shuffle=True) if self.args.fakes else None
-    self.sess = self.cached_session()
+    self.sess = self.cached_session(interactive=True)
     self.model = inception_utils.WrapInception(inception.Inception3().eval(), resize_mode=None)
     self.saver = tf.train.Saver(var_list=tf.global_variables())
     self.saver.restore(self.sess, 'gs://ml-euw4/models/inception_v3.ckpt')

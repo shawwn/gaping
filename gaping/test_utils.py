@@ -40,9 +40,9 @@ class GapingTestCase(tf.test.TestCase):
     global _cached_tpu_topology
     _cached_tpu_topology = value
 
-  def cached_session(self):
+  def cached_session(self, interactive=False):
     if self._cached_session is None:
-      self._cached_session = wrapper.create_session(interactive=True)
+      self._cached_session = wrapper.create_session(interactive=interactive)
       if self.topology is None and 'TPU_NAME' in os.environ:
         # Get the TPU topology.
         self.topology = wrapper.get_topology(force=bool(int(os.getenv('TPU_INIT', '0'))))
