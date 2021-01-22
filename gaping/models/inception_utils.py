@@ -2,22 +2,38 @@ import gaping.tftorch as nn
 import gaping.tftorch as F
 import gaping.models.inception
 
+def is_nhwc(data_format):
+  return data_format in ['channels_last', 'NHWC']
+
+def get_image_size(x, data_format='NHWC'):
+  nhwc = is_nhwc(data_format)
+  try:
+    if nhwc:
+      return nn.size(x, -3), nn.size(x, -2)
+    else:
+      return nn.size(x, -2), nn.size(x, -1)
+  except:
+    return None, None
+
 # Module that wraps the inception network to enable use with dataparallel and
 # returning pool features and logits.
 class WrapInception(nn.Module):
-  def __init__(self, net):
+  def __init__(self, net, resize_mode='bilinear', data_format='NHWC'):
     super(WrapInception,self).__init__()
     self.net = net
     self.mean = nn.view([0.485, 0.456, 0.406], 1, 1, 1, -1)
     self.std = nn.view([0.229, 0.224, 0.225], 1, 1, 1, -1)
+    self.resize_mode = resize_mode
+    self.data_format = data_format
   def forward(self, x):
     # Normalize x
     x = (x + 1.) / 2.0
     x = (x - self.mean) / self.std
     # Upsample if necessary
-    #if x.shape[2] != 299 or x.shape[3] != 299:
-    #  x = F.interpolate(x, size=(299, 299), mode='bilinear', align_corners=True)
-    x = F.interpolate(x, size=(299, 299), mode='area', align_corners=True)
+    if self.resize_mode is not None:
+      H, W = get_image_size(x, self.data_format)
+      if H != 299 or W != 299:
+        x = F.interpolate(x, size=(299, 299), mode=self.resize_mode, align_corners=True)
     # 299 x 299 x 3
     x = self.net.Conv2d_1a_3x3(x)
     # 149 x 149 x 32
@@ -56,12 +72,10 @@ class WrapInception(nn.Module):
     # 8 x 8 x 2048
     x = self.net.Mixed_7c(x)
     # 8 x 8 x 2048
-    #pool = torch.mean(x.view(x.size(0), x.size(1), -1), 2)
     pool = self.net.avgpool(x)
     # 1 x 1 x 2048
     pool = nn.flatten(pool, 1)
     # 2048
-    #logits = self.net.fc(F.dropout(pool, training=False).view(pool.size(0), -1))
     logits = self.net.fc(pool)
     # 1000 (num_classes)
     return pool, logits
@@ -156,7 +170,7 @@ def numpy_calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):
 
   tr_covmean = np.trace(covmean) 
 
-  out = diff.dot(diff) + np.trace(sigma1) + np.trace(sigma2) - 2 * tr_covmean
+  out = diff.dot(diff), np.trace(sigma1) + np.trace(sigma2) - 2 * tr_covmean
   return out
 
 
@@ -171,7 +185,20 @@ from scipy import linalg # For numpy FID
 #   mu1, sigma1, mu2, sigma2 = session.run([mu1, sigma1, mu2, sigma2])
 #   return numpy_calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
 
-def numpy_calculate_fid(model, pool1, pool2):
-  mu1, sigma1 = np.mean(pool1, 0), np.cov(pool1)
-  mu2, sigma2 = np.mean(pool2, 0), np.cov(pool2)
-  return numpy_calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
+def numpy_calculate_fid(pool1, pool2, rowvar=True):
+  mu1, sigma1 = np.mean(pool1, 0), np.cov(pool1, rowvar=rowvar)
+  mu2, sigma2 = np.mean(pool2, 0), np.cov(pool2, rowvar=rowvar)
+  mean, cov = numpy_calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
+  return mean, cov
+
+def mean_cov_np(x):
+    """ This function calculates mean and covariance for 2d array x.
+    This function is faster than separately running np.mean and np.cov
+
+    :param x: 2D array, columns of x represents variables.
+    :return:
+    """
+    mu = np.mean(x, axis=0)
+    x_centred = x - mu
+    cov = np.matmul(x_centred.transpose(), x_centred) / (x.shape[0] - 1.0)
+    return mu, cov
