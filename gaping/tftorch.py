@@ -2820,16 +2820,27 @@ def unpool2(value, name=None):
   x = tf.concat([value, value, value, value], axis=3)
   return tf.nn.depth_to_space(x, 2, name=name)
 
+_image_modes = {
+    'nearest': tf.image.ResizeMethod.NEAREST_NEIGHBOR,
+    'bilinear': tf.image.ResizeMethod.BILINEAR,
+    'bicubic': tf.image.ResizeMethod.BICUBIC,
+    'area': tf.image.ResizeMethod.AREA,
+}
 
-def interpolate(input, scale_factor=2, name="interpolate"):
-  if scale_factor % 2 != 0:
-    raise ValueError("scale_factor must be a multiple of 2, got {}".format(scale_factor))
-  out = input
-  while scale_factor // 2 >= 1:
-    out = unpool2(out, name=name)
-    scale_factor //= 2
-  return out
-
+def interpolate(input, size=None, scale_factor=None, mode='nearest', align_corners=None, name="interpolate"):
+  if mode == 'nearest' and scale_factor is not None and size is None:
+    # fast path?
+    if scale_factor % 2 != 0:
+      raise ValueError("scale_factor must be a multiple of 2, got {}".format(scale_factor))
+    out = input
+    while scale_factor // 2 >= 1:
+      out = unpool2(out, name=name)
+      scale_factor //= 2
+    return out
+  else:
+    method = _image_modes[mode]
+    output = tf.image.resize(input, size=size, method=method, name=name)
+    return output
 
 
 def pool(input, kernel_size, stride=None, pooling_type="AVG", padding="SAME", name=None):
