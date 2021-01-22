@@ -14,6 +14,13 @@ from gaping import wrapper
 from gaping.wrapper import tpu_ops
 from tensorflow.python.tpu import tpu
 
+def requeue(queue):
+  out = queue.dequeue()
+  vs = [tf.Variable(x, use_resource=True, trainable=False, collections=['local_variables']) for x in out]
+  with tf.control_dependencies([v.initializer for v in vs]):
+    with tf.control_dependencies([queue.enqueue([v.read_value() for v in vs])]):
+      return [v.read_value() for v in vs]
+
 
 class TpuTest(parameterized.TestCase, test_utils.GapingTestCase):
 
@@ -51,6 +58,23 @@ class TpuTest(parameterized.TestCase, test_utils.GapingTestCase):
             [[0, 1], [1, 0], [2, 3], [3, 2], [4, 5], [5, 4], [6, 7], [7, 6]])
       self.assertAllEqual([[[2.], [1.], [4.], [3.], [6.], [5.], [8.], [7.]]],
           self.evaluate(wrapper.tpu_shard(on_cores, inputs=inputs)))
+
+  def test_005_queue(self):
+    with tf.Graph().as_default():
+      image_path = tf1.placeholder(shape=(None), dtype=tf.string)
+      image_label = tf1.placeholder(shape=(None), dtype=tf.int64)
+      queue = tf.queue.RandomShuffleQueue(capacity=1_000_000, dtypes=[tf.string, tf.int64], shapes=[(), ()], min_after_dequeue=0, shared_name='inqueue')
+      size_op = queue.size()
+      enqueue_op = queue.enqueue_many([image_path, image_label])
+      dequeue_op = queue.dequeue()
+      requeue_op = requeue(queue)
+      with self.session().as_default() as sess:
+        if self.evaluate(size_op) <= 0:
+          self.log('Enqueueing...')
+          self.evaluate(enqueue_op, feed_dict={image_path: ['item2', 'item1', 'item4', 'item3'], image_label: [0, 1, 1, 0] })
+        for i in range(10):
+          self.log(self.evaluate(requeue_op))
+          self.log('There are now %s items in the queue', self.evaluate(size_op))
 
 
 if __name__ == "__main__":
