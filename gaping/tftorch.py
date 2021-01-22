@@ -6,10 +6,11 @@ from six import with_metaclass
 
 from functools import partial
 
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from typing import Union, Tuple, Any, Callable, Iterable, Iterator, Set, Optional, overload, TypeVar, Mapping, Dict
 
 from itertools import islice
+import itertools
 
 import operator
 
@@ -68,6 +69,14 @@ _ratio_any_t = _scalar_or_tuple_any_t[float]
 # of `T` to annotate `self`. Many methods of `Module` return `self` and we want those return values to be
 # the type of the subclass, not the looser type of `Module`.
 T = TypeVar('T', bound='Module')
+
+class _IncompatibleKeys(namedtuple('IncompatibleKeys', ['missing_keys', 'unexpected_keys'])):
+    def __repr__(self):
+        if not self.missing_keys and not self.unexpected_keys:
+            return '<All keys matched successfully>'
+        return super(_IncompatibleKeys, self).__repr__()
+
+    __str__ = __repr__
 
 
 def calling(op, nresults=1):
@@ -1092,6 +1101,142 @@ class Module(object):
             if hook_result is not None:
                 destination = hook_result
         return destination
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        r"""Copies parameters and buffers from :attr:`state_dict` into only
+        this module, but not its descendants. This is called on every submodule
+        in :meth:`~torch.nn.Module.load_state_dict`. Metadata saved for this
+        module in input :attr:`state_dict` is provided as :attr:`local_metadata`.
+        For state dicts without metadata, :attr:`local_metadata` is empty.
+        Subclasses can achieve class-specific backward compatible loading using
+        the version number at `local_metadata.get("version", None)`.
+
+        .. note::
+            :attr:`state_dict` is not the same object as the input
+            :attr:`state_dict` to :meth:`~torch.nn.Module.load_state_dict`. So
+            it can be modified.
+
+        Arguments:
+            state_dict (dict): a dict containing parameters and
+                persistent buffers.
+            prefix (str): the prefix for parameters and buffers used in this
+                module
+            local_metadata (dict): a dict containing the metadata for this module.
+                See
+            strict (bool): whether to strictly enforce that the keys in
+                :attr:`state_dict` with :attr:`prefix` match the names of
+                parameters and buffers in this module
+            missing_keys (list of str): if ``strict=True``, add missing keys to
+                this list
+            unexpected_keys (list of str): if ``strict=True``, add unexpected
+                keys to this list
+            error_msgs (list of str): error messages should be added to this
+                list, and will be reported together in
+                :meth:`~torch.nn.Module.load_state_dict`
+        """
+        for hook in self._load_state_dict_pre_hooks.values():
+            hook(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+
+        persistent_buffers = {k: v for k, v in self._buffers.items() if k not in self._non_persistent_buffers_set}
+        local_name_params = itertools.chain(self._parameters.items(), persistent_buffers.items())
+        local_state = {k: v for k, v in local_name_params if v is not None}
+
+        for name, param in local_state.items():
+            key = prefix + name
+            if key in state_dict:
+                input_param = state_dict[key]
+                # # This is used to avoid copying uninitialized parameters into
+                # # non-lazy modules, since they dont have the hook to do the checks
+                # # in such case, it will error when accessing the .shape attribute.
+                # is_param_lazy = isinstance(param, torch.nn.parameter.UninitializedParameter)
+                is_param_lazy = False # TODO
+                # Backward compatibility: loading 1-dim tensor from 0.3.* to version 0.4+
+                if not is_param_lazy and len(param.shape) == 0 and len(input_param.shape) == 1:
+                    input_param = input_param[0]
+
+                if not is_param_lazy and input_param.shape != param.shape:
+                    # local shape should match the one in checkpoint
+                    error_msgs.append('size mismatch for {}: copying a param with shape {} from checkpoint, '
+                                      'the shape in current model is {}.'
+                                      .format(key, input_param.shape, param.shape))
+                    continue
+                try:
+                    # with torch.no_grad():
+                    #     param.copy_(input_param)
+                    print('param.copy_(input_param)', param, input_param.shape)
+                    copy_(param, input_param)
+                except Exception as ex:
+                    error_msgs.append('While copying the parameter named "{}", '
+                                      'whose dimensions in the model are {} and '
+                                      'whose dimensions in the checkpoint are {}, '
+                                      'an exception occurred : {}.'
+                                      .format(key, size(param), size(input_param), ex.args))
+            elif strict:
+                missing_keys.append(key)
+
+        if strict:
+            for key in state_dict.keys():
+                if key.startswith(prefix):
+                    input_name = key[len(prefix):]
+                    input_name = input_name.split('.', 1)[0]  # get the name of param/buffer/child
+                    if input_name not in self._modules and input_name not in local_state:
+                        unexpected_keys.append(key)
+
+    def load_state_dict(self, state_dict: Union[Dict[str, Tensor], Dict[str, Tensor]],
+                        strict: bool = True):
+        r"""Copies parameters and buffers from :attr:`state_dict` into
+        this module and its descendants. If :attr:`strict` is ``True``, then
+        the keys of :attr:`state_dict` must exactly match the keys returned
+        by this module's :meth:`~torch.nn.Module.state_dict` function.
+
+        Arguments:
+            state_dict (dict): a dict containing parameters and
+                persistent buffers.
+            strict (bool, optional): whether to strictly enforce that the keys
+                in :attr:`state_dict` match the keys returned by this module's
+                :meth:`~torch.nn.Module.state_dict` function. Default: ``True``
+
+        Returns:
+            ``NamedTuple`` with ``missing_keys`` and ``unexpected_keys`` fields:
+                * **missing_keys** is a list of str containing the missing keys
+                * **unexpected_keys** is a list of str containing the unexpected keys
+        """
+        missing_keys = []
+        unexpected_keys = []
+        error_msgs = []
+
+        # copy state_dict so _load_from_state_dict can modify it
+        metadata = getattr(state_dict, '_metadata', None)
+        state_dict = state_dict.copy()
+        if metadata is not None:
+            state_dict._metadata = metadata
+
+        def load(module, prefix=''):
+            local_metadata = {} if metadata is None else metadata.get(prefix[:-1], {})
+            module._load_from_state_dict(
+                state_dict, prefix, local_metadata, True, missing_keys, unexpected_keys, error_msgs)
+            for name, child in module._modules.items():
+                if child is not None:
+                    load(child, prefix + name + '.')
+
+        load(self)
+        load = None  # break load->load reference cycle
+
+        if strict:
+            if len(unexpected_keys) > 0:
+                error_msgs.insert(
+                    0, 'Unexpected key(s) in state_dict: {}. '.format(
+                        ', '.join('"{}"'.format(k) for k in unexpected_keys)))
+            if len(missing_keys) > 0:
+                error_msgs.insert(
+                    0, 'Missing key(s) in state_dict: {}. '.format(
+                        ', '.join('"{}"'.format(k) for k in missing_keys)))
+
+        if len(error_msgs) > 0:
+            raise RuntimeError('Error(s) in loading state_dict for {}:\n\t{}'.format(
+                               self.__class__.__name__, "\n\t".join(error_msgs)))
+        return _IncompatibleKeys(missing_keys, unexpected_keys)
 
     def _get_name(self):
         return self.__class__.__name__
@@ -3316,6 +3461,65 @@ def zeros_(tensor):
 def ones_(tensor):
   init_(tensor, lambda: tf.ones_like(tensor))
 
+
+def is_integer(x):
+  return np.can_cast(x, np.int32)
+
+def is_float(x):
+  return np.can_cast(x, np.float32)
+
+def is_exact(x):
+  return is_integer(x) or is_float(x) and x == int(x)
+
+def num(x, digits_after_decimal=2):
+  if is_integer(x):
+    spec = '{:,d}'
+  else:
+    spec = '{:,.%df}' % digits_after_decimal
+  return spec.format(x)
+
+import collections
+
+def is_list(x):
+  return isinstance(x, collections.Sequence)
+
+def element_count(x):
+  if is_list(x):
+    return py.sum([element_count(v) for v in x])
+  if hasattr(x, 'shape'):
+    x = x.shape
+  if hasattr(x, 'as_list'):
+    x = x.as_list()
+  return py.int(np.prod(x))
+
+from tensorflow.core.protobuf import config_pb2
+from contextlib import contextmanager
+import time
+
+@contextmanager
+def with_elapsed(thunk, *args, **kws):
+  start = time.time()
+  result = thunk(*args, **kws)
+  elapsed = time.time() - start
+  yield elapsed, result
+
+def copy_(variables, values, session=None, timeout_in_ms=None):
+  variables = [variables] if not isinstance(variables, (list, tuple)) else variables
+  values = [values] if not isinstance(values, (list, tuple)) else values
+  session = session or tf.get_default_session()
+  variables = [x for x in variables]
+  values = [x for x in values]
+  ops = [x.initializer for x in variables]
+  vals = dict([(x.initializer.inputs[1], value.value() if isinstance(value, tf.Variable) else value) for x, value in zip(variables, values)]) # TODO: bfloat16 support
+  #for x, (k, v) in zip(variables, vals.items()):
+  #  print(x.name, x.shape.as_list(), k, v.shape)
+  options = None
+  if timeout_in_ms:
+    options=config_pb2.RunOptions(timeout_in_ms=timeout_in_ms)
+  tf.logging.info('Loading %s elements to TPU', num(element_count(variables)))
+  with with_elapsed(session.run, ops, vals, options=options) as (elapsed, result):
+    tf.logging.info('Loaded %s elements to TPU in %.2fs', num(element_count(variables)), elapsed)
+  
 
 
 class _NormBase(Module):
