@@ -2732,6 +2732,7 @@ class Conv2d(_ConvNd):
         stride = 1,
         padding = 0,
         dilation = 1,
+        transposed = False,
         groups = 1,
         bias = True,
         padding_mode = 'zeros',  # TODO: refine this type
@@ -2750,7 +2751,7 @@ class Conv2d(_ConvNd):
       dilation = _pair(dilation)
       super(Conv2d, self).__init__(
         in_channels, out_channels, kernel_size, stride, padding, dilation,
-        False, _pair(0), groups, bias, padding_mode, scope=scope, **kwargs)
+        transposed, _pair(0), groups, bias, padding_mode, scope=scope, **kwargs)
 
     def _conv_forward(self, input, weight):
         if self.padding_mode != 'zeros':
