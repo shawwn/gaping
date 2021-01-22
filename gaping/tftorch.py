@@ -3584,21 +3584,21 @@ class _NormBase(Module):
                 self.register_parameter('weight', None)
                 self.register_parameter('bias', None)
             if self.track_running_stats:
-                self.register_buffer('accumulated_mean', lambda: tf.zeros(num_features))
-                self.register_buffer('accumulated_var', lambda: tf.ones(num_features))
-                #self.register_buffer('accumulation_counter', lambda: tf.tensor(0, dtype=torch.long))
-                self.register_buffer('accumulation_counter', lambda: tf.zeros([]))
+                self.register_buffer('running_mean', lambda: tf.zeros(num_features))
+                self.register_buffer('running_var', lambda: tf.ones(num_features))
+                #self.register_buffer('num_batches_tracked', lambda: tf.tensor(0, dtype=torch.long))
+                self.register_buffer('num_batches_tracked', lambda: tf.zeros([]))
             else:
-                self.register_parameter('accumulated_mean', None)
-                self.register_parameter('accumulated_var', None)
-                self.register_parameter('accumulation_counter', None)
+                self.register_parameter('running_mean', None)
+                self.register_parameter('running_var', None)
+                self.register_parameter('num_batches_tracked', None)
             self.reset_parameters()
 
     def reset_running_stats(self) -> None:
         if self.track_running_stats:
-            zeros_(self.accumulated_mean)
-            ones_(self.accumulated_var)
-            zeros_(self.accumulation_counter)
+            zeros_(self.running_mean)
+            ones_(self.running_var)
+            zeros_(self.num_batches_tracked)
 
     def reset_parameters(self) -> None:
         self.reset_running_stats()
@@ -3651,18 +3651,18 @@ class _BatchNorm(_NormBase):
 
             if self.training and self.track_running_stats:
                 # # TODO: if statement only here to tell the jit to skip emitting this when it is None
-                # if self.accumulation_counter is not None:
-                #     self.accumulation_counter = self.accumulation_counter + 1
+                # if self.num_batches_tracked is not None:
+                #     self.num_batches_tracked = self.num_batches_tracked + 1
                 #     if self.momentum is None:  # use cumulative moving average
-                #         exponential_average_factor = 1.0 / float(self.accumulation_counter)
+                #         exponential_average_factor = 1.0 / float(self.num_batches_tracked)
                 #     else:  # use exponential moving average
                 #         exponential_average_factor = self.momentum
-                if self.accumulation_counter is not None:
+                if self.num_batches_tracked is not None:
                     if self.momentum is None:  # use cumulative moving average
-                        exponential_average_factor = 1.0 / tf.max(1.0, tf.cast(self.accumulation_counter, tf.float32))
+                        exponential_average_factor = 1.0 / tf.max(1.0, tf.cast(self.num_batches_tracked, tf.float32))
                     else:  # use exponential moving average
                         exponential_average_factor = self.momentum
-                    self.register_update('batchnorm_increment_accumulation_counter', self.accumulation_counter.assign_add(1, read_value=False))
+                    self.register_update('batchnorm_increment_num_batches_tracked', self.num_batches_tracked.assign_add(1, read_value=False))
                           
 
             r"""
@@ -3672,7 +3672,7 @@ class _BatchNorm(_NormBase):
             if self.training:
                 bn_training = True
             else:
-                bn_training = (self.accumulated_mean is None) and (self.accumulated_var is None)
+                bn_training = (self.running_mean is None) and (self.running_var is None)
 
             r"""
             Buffers are only updated if they are to be tracked and we are in training mode. Thus they only need to be
@@ -3682,8 +3682,8 @@ class _BatchNorm(_NormBase):
             return batch_norm(
                 input,
                 # If buffers are not to be tracked, ensure that they won't be updated
-                self.accumulated_mean if not self.training or self.track_running_stats else None,
-                self.accumulated_var if not self.training or self.track_running_stats else None,
+                self.running_mean if not self.training or self.track_running_stats else None,
+                self.running_var if not self.training or self.track_running_stats else None,
                 self.weight, self.bias, bn_training, exponential_average_factor, self.eps)
 
 
@@ -3742,7 +3742,7 @@ class BatchNorm1d(_BatchNorm):
             :math:`(N, C, L)` or :math:`L` from input of size :math:`(N, L)`
         eps: a value added to the denominator for numerical stability.
             Default: 1e-5
-        momentum: the value used for the accumulated_mean and accumulated_var
+        momentum: the value used for the running_mean and running_var
             computation. Can be set to ``None`` for cumulative moving average
             (i.e. simple average). Default: 0.1
         affine: a boolean value that when set to ``True``, this module has
@@ -3750,7 +3750,7 @@ class BatchNorm1d(_BatchNorm):
         track_running_stats: a boolean value that when set to ``True``, this
             module tracks the running mean and variance, and when set to ``False``,
             this module does not track such statistics, and initializes statistics
-            buffers :attr:`accumulated_mean` and :attr:`accumulated_var` as ``None``.
+            buffers :attr:`running_mean` and :attr:`running_var` as ``None``.
             When these buffers are ``None``, this module always uses batch statistics.
             in both training and eval modes. Default: ``True``
 
@@ -3815,7 +3815,7 @@ class BatchNorm2d(_BatchNorm):
             :math:`(N, C, H, W)`
         eps: a value added to the denominator for numerical stability.
             Default: 1e-5
-        momentum: the value used for the accumulated_mean and accumulated_var
+        momentum: the value used for the running_mean and running_var
             computation. Can be set to ``None`` for cumulative moving average
             (i.e. simple average). Default: 0.1
         affine: a boolean value that when set to ``True``, this module has
@@ -3823,7 +3823,7 @@ class BatchNorm2d(_BatchNorm):
         track_running_stats: a boolean value that when set to ``True``, this
             module tracks the running mean and variance, and when set to ``False``,
             this module does not track such statistics, and initializes statistics
-            buffers :attr:`accumulated_mean` and :attr:`accumulated_var` as ``None``.
+            buffers :attr:`running_mean` and :attr:`running_var` as ``None``.
             When these buffers are ``None``, this module always uses batch statistics.
             in both training and eval modes. Default: ``True``
 
@@ -3889,7 +3889,7 @@ class BatchNorm3d(_BatchNorm):
             :math:`(N, C, D, H, W)`
         eps: a value added to the denominator for numerical stability.
             Default: 1e-5
-        momentum: the value used for the accumulated_mean and accumulated_var
+        momentum: the value used for the running_mean and running_var
             computation. Can be set to ``None`` for cumulative moving average
             (i.e. simple average). Default: 0.1
         affine: a boolean value that when set to ``True``, this module has
@@ -3897,7 +3897,7 @@ class BatchNorm3d(_BatchNorm):
         track_running_stats: a boolean value that when set to ``True``, this
             module tracks the running mean and variance, and when set to ``False``,
             this module does not track such statistics, and initializes statistics
-            buffers :attr:`accumulated_mean` and :attr:`accumulated_var` as ``None``.
+            buffers :attr:`running_mean` and :attr:`running_var` as ``None``.
             When these buffers are ``None``, this module always uses batch statistics.
             in both training and eval modes. Default: ``True``
 
