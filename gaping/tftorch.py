@@ -4139,7 +4139,7 @@ class _DropoutNd(Module):
                 "inplace not yet implemented")
 
     def extra_repr(self) -> str:
-        if seed is not None:
+        if self.seed is not None:
           return 'p={}, seed={}'.format(self.p, self.seed)
         else:
           return 'p={}'.format(self.p)
