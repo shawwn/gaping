@@ -2198,12 +2198,22 @@ def permute(tensor, *pattern, name=None):
   return tf.transpose(tensor, pattern, name=name)
 
 
+from collections import Counter
+
 def flatten(tensor, start_dim=1, end_dim=-1, name=None):
   dims = dim(tensor)
   if end_dim < 0:
     end_dim = dims + end_dim
   shape = shapelist(tensor)
-  out_shape = shape[0:start_dim] + [-1] + shape[end_dim+1:]
+  # this doesn't work with placeholders (e.g. if batch axis is None)
+  #out_shape = shape[0:start_dim] + [-1] + shape[end_dim+1:]
+  beg_shape = shape[0:start_dim]
+  mid_shape = shape[start_dim:end_dim+1] 
+  end_shape = shape[end_dim+1:]
+  mid_shape = [np.prod(mid_shape)]
+  out_shape = beg_shape + mid_shape + end_shape
+  assert Counter(out_shape).get(None, 0) <= 1
+  out_shape = [-1 if x is None else x for x in out_shape]
   return tf.reshape(tensor, shape=out_shape, name=name)
 
 
