@@ -4012,6 +4012,15 @@ Example::
   return tf.reduce_mean(input, axis=dim, keepdims=keepdim)
 
 
+def t(tensor, name="matrix_transpose"):
+  out = tf.linalg.matrix_transpose(tensor, name=name)
+  return out
+
+
+def matmul(input, other, name="matmul"):
+  out = tf.linalg.matmul(input, other, name=name)
+  return out
+
 
 from typing import Tuple, Union
 
