@@ -237,7 +237,7 @@ async def main(urls='https://battle.shawwn.com/sdc/imagenet/validation_urls.txt'
       l_bar='{desc}| ',
       #r_bar='| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, ' '{rate_fmt}{postfix}]',
       #l_bar='{desc}',
-      r_bar='|                            {percentage:3.3f}% [{elapsed}<{remaining}]',
+      r_bar='|                            {percentage:7.3f}% [{elapsed}<{remaining}]',
       bar='{bar}'
       )
   bar_format = r'{l_bar}{bar}{r_bar}'.format(
@@ -247,7 +247,7 @@ async def main(urls='https://battle.shawwn.com/sdc/imagenet/validation_urls.txt'
       # r_bar='| {percentage:3.3f}% [{elapsed}<{remaining}]',
       #l_bar='{desc}: {percentage:3.0f}%|',
       l_bar='{desc}| ',
-      r_bar='| {n_fmt:>10s} {desc} of {total_fmt:<10s} {rate_fmt:>16s}{postfix}',
+      r_bar='| {n_fmt:>10s} {desc} of ~{total_fmt:<10s} {rate_fmt:>16s}{postfix}',
       bar='{bar}'
       )
   def make_bar(position, bar_format=bar_format, **kws):
