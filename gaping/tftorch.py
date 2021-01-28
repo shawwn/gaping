@@ -2167,16 +2167,21 @@ def assert_shape(lhs, shape):
   return x
         
 
+# def shapelist(x):
+#   if hasattr(x, 'shape'):
+#     x = x.shape
+#   if hasattr(x, 'as_list'):
+#     x = x.as_list()
+#   if isinstance(x, (list, tuple)):
+#     return list(x)
+#   if isinstance(x, (int, float, bool, str, bytes)):
+#     return [1]
+#   raise ValueError("Unknown shapelist input type: {!r}".format(x))
+
+
 def shapelist(x):
-  if hasattr(x, 'shape'):
-    x = x.shape
-  if hasattr(x, 'as_list'):
-    x = x.as_list()
-  if isinstance(x, (list, tuple)):
-    return list(x)
-  if isinstance(x, (int, float, bool, str, bytes)):
-    return [1]
-  raise ValueError("Unknown shapelist input type: {!r}".format(x))
+  x, b, lib = get_lib(x)
+  return list(b.shape(x))
 
 
 def size(tensor, index=None):
@@ -2188,6 +2193,7 @@ def size(tensor, index=None):
 
 def dim(tensor):
   return len(shapelist(tensor))
+
 
 import einops
 
