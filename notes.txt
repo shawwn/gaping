@@ -1,0 +1,6 @@
+On jax's PRNG design:
+
+https://github.com/google/jax/blob/master/design_notes/prng.md
+http://www.thesalmons.org/john/random123/papers/random123sc11.pdf
+https://dl.acm.org/doi/10.1145/2503778.2503784
+https://scihubtw.tw/10.1145/2503778.2503784
