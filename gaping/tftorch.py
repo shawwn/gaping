@@ -2345,6 +2345,30 @@ def slice(x, begin, size, name=None):
     raise NotImplementedError()
 
 
+def to_float(x, name=None):
+  x, b, lib = get_lib(x)
+  if is_tf_backend(b):
+    return tf.to_float(x, name=name)
+  elif is_numpy_backend(b):
+    return x.astype(np.float32)
+  elif is_torch_backend(b):
+    return x.float()
+  else:
+    raise NotImplementedError()
+
+
+def to_long(x, name=None):
+  x, b, lib = get_lib(x)
+  if is_tf_backend(b):
+    return tf.cast(x, tf.int64, name=name)
+  elif is_numpy_backend(b):
+    return x.astype(np.int64)
+  elif is_torch_backend(b):
+    return x.long()
+  else:
+    raise NotImplementedError()
+
+
 def numel(tensor):
   return np.prod(size(tensor))
 
