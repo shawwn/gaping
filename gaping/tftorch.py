@@ -2189,13 +2189,80 @@ def size(tensor, index=None):
 def dim(tensor):
   return len(shapelist(tensor))
 
+import einops
+
+def backend(x):
+  if isinstance(x, (tuple, list)):
+    for item in x:
+      b = backend(item)
+      if b is not None:
+        return b
+  elif isinstance(x, dict):
+    for item in x.values():
+      b = backend(item)
+      if b is not None:
+        return b
+  elif isinstance(x, (py.int, py.float, py.bool)):
+    return get_numpy_backend()
+  else:
+    return einops._backends.get_backend(x)
+
+def get_numpy_backend():
+  try:
+    return einops._backends._backends['numpy']
+  except KeyError:
+    return einops._backends.get_backend(np.array(1.0))
+
+def backend_to_lib(b):
+  if hasattr(b, 'np'):
+    return b.np
+  if hasattr(b, 'tf'):
+    return b.tf
+  if hasattr(b, 'torch'):
+    return b.torch
+  raise ValueError("Unknown backend")
+
+def get_lib(tensor):
+  b = backend(tensor)
+  lib = backend_to_lib(b)
+  if is_numpy_backend(b):
+    tensor = b.np.array(tensor)
+  return tensor, b, lib
+
+def get_lib_from_hint(hint):
+  if hint is None: hint = 'tf'
+  if not isinstance(hint, str):
+    _, b, lib = get_lib(hint)
+    return lib
+  if hint == 'np': hint = 'numpy'
+  if hint == 'tf': hint = 'tensorflow'
+  b = einops._backends._backends[hint]
+  lib = backend_to_lib(b)
+  return b, lib
+
+def is_jax_backend(be):
+  assert isinstance(be, einops._backends.AbstractBackend)
+  return isinstance(be, einops._backends.JaxBackend)
+
+def is_numpy_backend(be):
+  assert isinstance(be, einops._backends.AbstractBackend)
+  return isinstance(be, (einops._backends.NumpyBackend, einops._backends.JaxBackend))
+
+def is_tf_backend(be):
+  assert isinstance(be, einops._backends.AbstractBackend)
+  return isinstance(be, (einops._backends.TensorflowBackend))
+
+def is_torch_backend(be):
+  assert isinstance(be, einops._backends.AbstractBackend)
+  return isinstance(be, (einops._backends.TorchBackend))
 
 def view(tensor, *shape, name=None):
-  return tf.reshape(tensor, shape, name=name)
-
+  tensor, b, lib = get_lib(tensor)
+  return b.reshape(tensor, shape)
 
 def permute(tensor, *pattern, name=None):
-  return tf.transpose(tensor, pattern, name=name)
+  tensor, b, lib = get_lib(tensor)
+  return b.transpose(tensor, pattern)
 
 
 from collections import Counter
@@ -2214,27 +2281,51 @@ def flatten(tensor, start_dim=1, end_dim=-1, name=None):
   out_shape = beg_shape + mid_shape + end_shape
   assert Counter(out_shape).get(None, 0) <= 1
   out_shape = [-1 if x is None else x for x in out_shape]
-  return tf.reshape(tensor, shape=out_shape, name=name)
+  return view(tensor, *out_shape)
 
 
-def cat(x, axis, name=None):
-  return tf.concat(x, axis=axis, name=name)
+def cat(x, dim=0, name=None):
+  x, b, lib = get_lib(x)
+  if is_tf_backend(b):
+    return tf.concat(x, axis=dim, name=name)
+  elif is_numpy_backend(b):
+    return np.concatenate(x, axis=dim)
+  else:
+    return lib.cat(x, dim)
 
 
-def squeeze(x, axis=None, name=None):
-  return tf.squeeze(x, axis=axis, name=name)
+def squeeze(x, dim=None, name=None):
+  x, b, lib = get_lib(x)
+  if is_tf_backend(b):
+    return tf.squeeze(x, axis=dim, name=name)
+  elif is_numpy_backend(b):
+    return np.squeeze(x, axis=dim)
+  else:
+    return lib.squeeze(x, dim)
 
 
-def sum(x, axis, name=None):
-  return tf.reduce_sum(x, axis=axis)
+def sum(x, dim=-1, keepdim=False, name=None):
+  x, b, lib = get_lib(x)
+  if is_tf_backend(b):
+    return tf.reduce_sum(x, axis=dim, keepdims=keepdim, name=name)
+  elif is_numpy_backend(b):
+    return lib.sum(x, axis=dim, keepdims=keepdim)
+  else:
+    return lib.sum(x, dim, keepdim=keepdim)
 
 
 def numel(tensor):
   return np.prod(size(tensor))
 
 
-def randn(*shape):
-  return tf.random.uniform(shape=shape)
+def randn(*shape, hint=None, name=None):
+  b, lib = get_lib_from_hint(hint)
+  if is_numpy_backend(b):
+    return lib.random.normal(size=shape)
+  elif is_tf_backend(b):
+    return lib.random.normal(shape=shape, name=name)
+  else:
+    return lib.randn(*shape)
 
 
 def detach(v, name=None):
@@ -3463,16 +3554,18 @@ def bmm(input, mat2, transpose_a=False, transpose_b=False, name=None):
   return tf.matmul(input, mat2, transpose_a=transpose_a, transpose_b=transpose_b, name=name)
 
 
-def zeros(*size, out=None, **kwargs):
-  if out is not None:
+def zeros(*size, hint=None, **kwargs):
+  b, lib = get_lib_from_hint(hint)
+  if not is_torch_backend(b) and 'out' in kwargs:
     raise NotImplementedError()
-  return tf.zeros(shape=size, **kwargs)
+  return lib.zeros(size, **kwargs)
 
 
-def ones(*size, out=None, **kwargs):
-  if out is not None:
+def ones(*size, hint=None, **kwargs):
+  b, lib = get_lib_from_hint(hint)
+  if not is_torch_backend(b) and 'out' in kwargs:
     raise NotImplementedError()
-  return tf.ones(shape=size, **kwargs)
+  return lib.ones(size, **kwargs)
 
 
 
