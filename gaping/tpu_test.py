@@ -77,7 +77,7 @@ class TpuTest(parameterized.TestCase, test_utils.GapingTestCase):
           self.log('There are now %s items in the queue', self.evaluate(size_op))
 
 
-from gaping.models.inception_test import *
+#from gaping.models.inception_test import *
 
 if __name__ == "__main__":
   import gaping.wrapper
