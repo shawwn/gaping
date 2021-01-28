@@ -2320,6 +2320,31 @@ def sum(x, dim=-1, keepdim=False, name=None):
     return lib.sum(x, dim, keepdim=keepdim)
 
 
+# T = [[[1, 1, 1], [2, 2, 2]], [[3, 3, 3], [4, 4, 4]], [[5, 5, 5], [6, 6, 6]]]
+# t = torch.tensor(T)
+# t = jax.numpy.array(T)
+# t = tf.constant(T)
+# t0 = nn.slice(t, [1, 0, 0], [1, 1, 3])  # [[[3, 3, 3]]]
+# t1 = nn.slice(t, [1, 0, 0], [1, 2, 3])  # [[[3, 3, 3], [4, 4, 4]]]
+# t2 = nn.slice(t, [1, 0, 0], [2, 1, 3])  # [[[3, 3, 3]], [[5, 5, 5]]]
+
+def slice(x, begin, size, name=None):
+  x, b, lib = get_lib(x)
+  if is_tf_backend(b):
+    return tf.slice(x, begin, size, name=name)
+  elif is_jax_backend(b):
+    import jax
+    begin = lib.array(begin)
+    size = lib.array(size)
+    return jax.lax.slice(x, begin, begin + size)
+  elif is_torch_backend(b):
+    for dim, (start, length) in enumerate(zip(begin, size)):
+      x = x.narrow(dim, start, length)
+    return x
+  else:
+    raise NotImplementedError()
+
+
 def numel(tensor):
   return np.prod(size(tensor))
 
