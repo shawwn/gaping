@@ -56,10 +56,11 @@ def parse_image(value, image_key="image/encoded", label_key="image/class/label",
 
   return {
     'image': image,
+    'image_bytes': image_bytes,
     'label': label,
     'hash': fingerprint,
   }
-  
+
 # >>> reload(datasets); ds = datasets.fetch_filenames( "gs://mldata-euw4/datasets/imagenet/validation-*", 0, 1 ); ds = datasets.filenames_to_records( ds ); ds = ds.map(datasets.parse_image, num_parallel_calls=1)
 
 # reload(datasets); ds = datasets.fetch_filenames( "gs://mldata-euw4/datasets/imagenet/validation-*", 0, 1 ); ds = tf.data.Dataset.zip((ds, tf.data.Dataset.range(200))).repeat()
