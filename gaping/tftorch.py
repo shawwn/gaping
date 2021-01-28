@@ -2195,6 +2195,10 @@ def dim(tensor):
   return len(shapelist(tensor))
 
 
+def numel(tensor):
+  return np.prod(size(tensor))
+
+
 import einops
 
 def backend(x):
@@ -2367,10 +2371,6 @@ def to_long(x, name=None):
     return x.long()
   else:
     raise NotImplementedError()
-
-
-def numel(tensor):
-  return np.prod(size(tensor))
 
 
 def randn(*shape, hint=None, name=None):
