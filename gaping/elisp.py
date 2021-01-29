@@ -210,17 +210,6 @@ def eval_sub(form, *, macroexpanding=False, **kws):
       val = eval_sub(val)
     return val
 
-def macroexpand_1(form):
-  return eval_sub(form, macroexpanding=True)
-
-def apply(f, *args, **kws):
-  if len(args) > 0:
-    args = [*args[0:-1], *args[-1]]
-  return util.call_func_by_name(*args, **kws, func_name=f)
-
-def call(f, *args, **kws):
-  return apply(f, args, **kws)
-
 def getenv(symbol, property):
   return Q.nil
 
@@ -276,6 +265,14 @@ def DEFMACRO(name, max_args = MANY):
     return fn
   return func
 
+@DEFUN('list')
+def list_(*args, **kws):
+  args = list(args)
+  for k, v in kws.items():
+    args.append(':' + k)
+    args.append(v)
+  return args
+
 @DEFUN('eval')
 def eval(x, **kws):
   # x = util.get_indirect(x)
@@ -283,6 +280,21 @@ def eval(x, **kws):
   #   return eval_sub(x, **kws)
   x = eval_sub(x, **kws)
   return x
+
+@DEFUN('apply')
+def apply(f, *args, **kws):
+  if len(args) > 0:
+    args = [*args[0:-1], *args[-1]]
+  # return util.call_func_by_name(*args, **kws, func_name=f)
+  return F.eval(F.list(f, *args, **kws))
+
+@DEFUN('call')
+def call(f, *args, **kws):
+  return F.apply(f, args, **kws)
+
+@DEFUN('macroexpand-1')
+def macroexpand_1(form):
+  return eval_sub(form, macroexpanding=True)
 
 @DEFMACRO('get')
 def get__macro(*args):
