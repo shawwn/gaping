@@ -42,6 +42,15 @@ class Queue:
     else:
       return loop_n(inner, n)
 
+
+def requeue(queue):
+  out = queue.dequeue()
+  vs = [tf.Variable(x, use_resource=True, trainable=False, collections=['local_variables']) for x in out]
+  with tf.control_dependencies([v.initializer for v in vs]):
+    with tf.control_dependencies([queue.enqueue([v.read_value() for v in vs])]):
+      return [v.read_value() for v in vs]
+
+
 class InputDataset:
   def __init__(self, dataset, transform=None):
     self.dataset = dataset
