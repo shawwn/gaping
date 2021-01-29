@@ -552,6 +552,31 @@ def tpu_id():
   replica_id = tf.cast(tf.cast(xla.replica_id(), tf.uint32), tf.int32)
   return replica_id
 
+history_pos = globals().get('history_pos', 0)
+
+def print_history(start=None, file=None):
+  global history_pos
+  if start is None:
+    history_pos = print_history(history_pos, file=file)
+    return history_pos
+  else:
+    import readline
+    n = readline.get_current_history_length()
+    for i in range(start, n):
+      print(readline.get_history_item(i), file=file)
+    return n
+
+def write_history(filename='history.txt', start=0):
+  try:
+    with open(filename + '.tmp', 'w') as f:
+      return print_history(start=start, file=f)
+  finally:
+    try:
+      os.rename(filename + '.tmp', filename)
+    except OSError:
+      pass
+
+
 if __name__ == '__main__':
   _tf_patch = patch_tensorflow_interactive()
   if len(sys.argv) <= 1:
