@@ -270,6 +270,7 @@ def patch_tensorflow():
 def patch_tensorflow_interactive():
   patch = patch_tensorflow()
   patch.__enter__()
+  np.set_printoptions(suppress=True)
   return patch
 
 
