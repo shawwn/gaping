@@ -2242,6 +2242,11 @@ def numel(tensor):
 
 import einops
 
+# ensure einops backends are available immediately
+einops._backends.get_backend(np.array(1.0))
+with tf.Graph().as_default():
+  einops._backends.get_backend(tf.zeros([1,2]))
+
 def backend(x):
   if isinstance(x, (tuple, list)):
     for item in x:
