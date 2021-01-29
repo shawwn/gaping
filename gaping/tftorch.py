@@ -2169,9 +2169,9 @@ class Linear(Module):
           #   self.bias = tf.Variable(tf.zeros(shape=[out_features]), use_resource=True, name="b")
           # else:
           #   self.bias = None
-          self.weight = self.globalvar(weight_name or 'w', shape=[in_features, out_features])
+          self.weight = self.globalvar(weight_name or 'weight', shape=[in_features, out_features])
           if bias:
-            self.bias = self.globalvar(bias_name or 'b', shape=[out_features])
+            self.bias = self.globalvar(bias_name or 'bias', shape=[out_features])
           else:
             self.bias = None
           self.reset_parameters()
@@ -2745,11 +2745,11 @@ class _ConvNd(Module):
       self.groups = groups
       self.padding_mode = padding_mode
       if transposed:
-        self.weight = self.globalvar(weight_name or 'w', shape=[*kernel_size, out_channels, in_channels // groups])
+        self.weight = self.globalvar(weight_name or 'weight', shape=[*kernel_size, out_channels, in_channels // groups])
       else:
-        self.weight = self.globalvar(weight_name or 'w', shape=[*kernel_size, in_channels, out_channels // groups])
+        self.weight = self.globalvar(weight_name or 'weight', shape=[*kernel_size, in_channels, out_channels // groups])
       if bias:
-        self.bias = self.globalvar(bias_name or 'b', shape=[out_channels])
+        self.bias = self.globalvar(bias_name or 'bias', shape=[out_channels])
       else:
         self.bias = None
     self.reset_parameters()
@@ -4118,7 +4118,7 @@ class Embedding(Module):
     self.embedding_dim = embedding_dim
     self.max_norm = max_norm
     with self.scope():
-      self.weight = self.globalvar(weight_name or 'w', shape=[num_embeddings, embedding_dim])
+      self.weight = self.globalvar(weight_name or 'weight', shape=[num_embeddings, embedding_dim])
 
   def forward(self, input):
     with self.scope():
