@@ -489,7 +489,10 @@ def get_task_and_cores_to_replicas(topology=None):
 def get_core_assignment(core_ids=None, topology=None):
   if topology is None:
     topology = cached_topology()
-  return device_assignment_lib.DeviceAssignment(topology, [[topology.device_coordinates[i//8][i%8]] for i in core_ids])
+  core_ids = np.array(core_ids, dtype=np.int32)
+  if np.ndim(core_ids) < 2:
+    core_ids = np.reshape(core_ids, [-1, 1])
+  return device_assignment_lib.DeviceAssignment(topology, [[topology.device_coordinates[i//8][i%8] for i in x] for x in core_ids])
 
 def get_device_assignment(computation_shape=None, num_replicas=None, computation_stride=None, *, topology=None, device_order_mode=device_fns.DeviceOrderMode.AUTO):
   if topology is None:
