@@ -37,14 +37,14 @@ def filenames_to_records(dataset, num_parallel_calls=1): # usually use num_paral
   return dataset
 
 
-def parse_image(value, image_key="image/encoded", label_key="image/class/label", label_bias=0):
+def parse_image(value, image_key="image/encoded", label_key="image/class/label", label_bias=0, decode=True):
   keys_to_features = {
       image_key: tf.FixedLenFeature((), tf.string, ''),
       label_key: tf.FixedLenFeature([], tf.int64, -1),
   }
   parsed = tf.parse_single_example(value, keys_to_features)
   image_bytes = tf.reshape(parsed[image_key], shape=[])
-  image = tf.io.decode_image(image_bytes, 3)
+  image = tf.io.decode_image(image_bytes, 3) if decode else image_bytes
 
   # For imagenet records, set label_bias = -1 so that labels are in [0, 1000).
   label = tf.cast(tf.reshape(parsed[label_key], shape=[]), dtype=tf.int32) + label_bias
@@ -54,13 +54,25 @@ def parse_image(value, image_key="image/encoded", label_key="image/class/label",
   fingerprint = tf.bitcast(fingerprint, tf.int64)
   fingerprint = fingerprint[0]
 
-  return {
-    'image': image,
+  result = {
     'image_bytes': image_bytes,
     'label': label,
     'hash': fingerprint,
   }
+  if decode:
+    result['image'] = image
+  return result
 
-# >>> reload(datasets); ds = datasets.fetch_filenames( "gs://mldata-euw4/datasets/imagenet/validation-*", 0, 1 ); ds = datasets.filenames_to_records( ds ); ds = ds.map(datasets.parse_image, num_parallel_calls=1)
+from functools import partial
 
-# reload(datasets); ds = datasets.fetch_filenames( "gs://mldata-euw4/datasets/imagenet/validation-*", 0, 1 ); ds = tf.data.Dataset.zip((ds, tf.data.Dataset.range(200))).repeat()
+def parse_image_fn(**kws):
+  return partial(parse_image, **kws)
+
+# from gaping.data import datasets; reload(datasets); ds = datasets.fetch_filenames( "gs://mldata-euw4/datasets/imagenet/validation-0*", 0, 1 ); ds = datasets.filenames_to_records( ds ); ds = ds.map(datasets.parse_image, num_parallel_calls=1)
+
+# from gaping.data import datasets; reload(datasets); ds = datasets.fetch_filenames( "gs://mldata-euw4/datasets/mnist1/mnist-validation-0*", 0, 1 ); ds = datasets.filenames_to_records( ds ); ds = ds.map(datasets.parse_image_fn(decode=False), num_parallel_calls=1)
+
+# it = ds.make_one_shot_iterator(); nxt = it.get_next()
+
+
+# reload(datasets); ds = datasets.fetch_filenames( "gs://mldata-euw4/datasets/imagenet/validation-0*", 0, 1 ); ds = tf.data.Dataset.zip((ds, tf.data.Dataset.range(200))).repeat()
