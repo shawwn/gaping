@@ -146,6 +146,11 @@ class Bottleneck(nn.Module):
             return out
 
 class ResNet(nn.Module):
+    def set(self, scope, fn, *args, **kws):
+        if scope in self._skip:
+            setattr(self, scope, nn.Identity(scope=scope))
+        else:
+            setattr(self, scope, fn(*args, scope=scope, **kws))
 
     def __init__(
         self,
@@ -157,10 +162,12 @@ class ResNet(nn.Module):
         width_per_group: int = 64,
         replace_stride_with_dilation: Optional[List[bool]] = None,
         norm_layer: Optional[Callable[..., nn.Module]] = None,
+        skip: List[str] = [],
         scope='resnet',
         **kws,
     ) -> None:
         super(ResNet, self).__init__(scope=scope, **kws)
+        self._skip = skip
         with self.scope():
             if norm_layer is None:
                 norm_layer = nn.BatchNorm2d
@@ -177,20 +184,20 @@ class ResNet(nn.Module):
                                  "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
             self.groups = groups
             self.base_width = width_per_group
-            self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
-                                   bias=False, scope='conv1')
-            self.bn1 = norm_layer(self.inplanes, scope='bn1')
-            self.relu = nn.ReLU(inplace=True, scope='relu')
-            self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1, scope='maxpool')
-            self.layer1 = self._make_layer(block, 64, layers[0], scope='layer1')
-            self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
-                                           dilate=replace_stride_with_dilation[0], scope='layer2')
-            self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
-                                           dilate=replace_stride_with_dilation[1], scope='layer3')
-            self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
-                                           dilate=replace_stride_with_dilation[2], scope='layer4')
-            self.avgpool = nn.AdaptiveAvgPool2d((1, 1), scope='avgpool')
-            self.fc = nn.Linear(512 * block.expansion, num_classes, scope='fc')
+            self.set('conv1', nn.Conv2d, 3, self.inplanes, kernel_size=7, stride=2, padding=3,
+                                   bias=False)
+            self.set('bn1', norm_layer, self.inplanes)
+            self.set('relu', nn.ReLU, inplace=True)
+            self.set('maxpool', nn.MaxPool2d, kernel_size=3, stride=2, padding=1)
+            self.set('layer1', self._make_layer, block, 64, layers[0])
+            self.set('layer2', self._make_layer, block, 128, layers[1], stride=2,
+                                           dilate=replace_stride_with_dilation[0])
+            self.set('layer3', self._make_layer, block, 256, layers[2], stride=2,
+                                           dilate=replace_stride_with_dilation[1])
+            self.set('layer4', self._make_layer, block, 512, layers[3], stride=2,
+                                           dilate=replace_stride_with_dilation[2])
+            self.set('avgpool', nn.AdaptiveAvgPool2d, (1, 1))
+            self.set('fc', nn.Linear, 512 * block.expansion, num_classes)
 
             print('TODO')
             if False:
@@ -250,7 +257,7 @@ class ResNet(nn.Module):
         x = self.layer4(x)
 
         x = self.avgpool(x)
-        x = torch.flatten(x, 1)
+        x = nn.flatten(x, 1)
         x = self.fc(x)
 
         return x
@@ -266,9 +273,10 @@ def _resnet(
     layers: List[int],
     pretrained: bool,
     progress: bool,
+    scope: str = None,
     **kwargs: Any
 ) -> ResNet:
-    model = ResNet(block, layers, scope=kwargs.pop('scope', arch), **kwargs)
+    model = ResNet(block, layers, scope=(scope or arch), **kwargs)
     if pretrained:
         state_dict = load_state_dict_from_url(model_urls[arch],
                                               progress=progress)
@@ -398,4 +406,17 @@ def wide_resnet101_2(pretrained: bool = False, progress: bool = True, **kwargs: 
     kwargs['width_per_group'] = 64 * 2
     return _resnet('wide_resnet101_2', Bottleneck, [3, 4, 23, 3],
                    pretrained, progress, **kwargs)
+
+
+# https://github.com/PyTorchLightning/pytorch-lightning/blob/master/notebooks/07-cifar10-baseline.ipynb
+def resnet18_cifar10(num_classes=10, **kws):
+  r"""Modify the pre-existing Resnet architecture from TorchVision.
+
+  The pre-existing architecture is based on ImageNet images (224x224) as input.
+  So we need to modify it for CIFAR10 images (32x32)."""
+  model = resnet18(num_classes=num_classes, skip=['conv1', 'maxpool'], **kws)
+  with model.scope():
+    model.conv1 = nn.Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False, scope='conv1')
+    model.maxpool = nn.Identity()
+  return model
 
