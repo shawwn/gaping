@@ -409,14 +409,21 @@ def wide_resnet101_2(pretrained: bool = False, progress: bool = True, **kwargs: 
 
 
 # https://github.com/PyTorchLightning/pytorch-lightning/blob/master/notebooks/07-cifar10-baseline.ipynb
-def resnet18_cifar10(num_classes=10, **kws):
+def resnet18_cifar10(num_classes=10, scope='resnet18_cifar10', **kws):
   r"""Modify the pre-existing Resnet architecture from TorchVision.
 
   The pre-existing architecture is based on ImageNet images (224x224) as input.
   So we need to modify it for CIFAR10 images (32x32)."""
-  model = resnet18(num_classes=num_classes, skip=['conv1', 'maxpool'], **kws)
+  model = resnet18(num_classes=num_classes, skip=['conv1', 'maxpool'], scope=scope, **kws)
   with model.scope():
     model.conv1 = nn.Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False, scope='conv1')
     model.maxpool = nn.Identity()
   return model
 
+
+if __name__ == '__main__':
+  import tensorflow.compat.v1 as tf
+  fake_cifar10 = nn.zeros(1,32,32,3)
+  model = resnet18_cifar10(num_classes=10, index=1); fake_cifar10_out = model(fake_cifar10); model
+  from pprint import pprint as pp
+  pp({k.replace('.', '/'): v for k, v in model.state_dict(prefix='resnet.', keep_vars=True).items()})
