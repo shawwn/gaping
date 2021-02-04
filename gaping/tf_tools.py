@@ -201,6 +201,17 @@ def tensor_to_pil(tensor):
     tensor = np.clip(tensor * 255.0, 0, 255).astype(np.uint8)
   return Image.fromarray(tensor)
 
+from io import BytesIO
+
+def bytes_to_pil(data):
+  return Image.open(BytesIO(data))
+
+def pil_to_bytes(image, quality=60):
+  with BytesIO() as bio:
+    image = image.convert('RGB')
+    image.save(bio, 'JPEG', quality=quality)
+    return bio.getvalue()
+
 def pil_to_tensor(image):
   image = np.array(image, np.uint8) / 255.0
   return image
@@ -227,3 +238,7 @@ def label_image_grid(labels, images):
 
 # # convert back to numpy array
 # char_image = np.array(pillowImage, np.uint8)
+
+def readbytes(filename):
+  with tf.io.gfile.GFile(filename, 'rb') as f:
+    return f.read()
