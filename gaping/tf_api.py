@@ -349,7 +349,7 @@ def tf_string_splits(input, delimiters=[' ', '\n']):
     input = tf_string_split(input, delim)
   return input
 
-def tf_array_map(f, ta, out_dtype=None, *, start=0, parallel_iterations=96, **kws):
+def tf_array_map(ta, f, out_dtype=None, *, start=0, parallel_iterations=96, **kws):
   def _while_condition(*args, **kws):
     return tf.convert_to_tensor(True)
   def _while_body(i, a_i, a_o):
@@ -375,7 +375,7 @@ def tf_array_map(f, ta, out_dtype=None, *, start=0, parallel_iterations=96, **kw
   return ta_out
 
 
-def tf_array_mappend(f, ta, out_dtype=None, *, start=0, **kws):
+def tf_array_mappend(ta, f, out_dtype=None, *, start=0, **kws):
   parallel_iterations=1
   def _while_condition(*args, **kws):
     return tf.convert_to_tensor(True)
