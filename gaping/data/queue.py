@@ -43,12 +43,25 @@ class Queue:
       return loop_n(inner, n)
 
 
+from tensorflow.python.framework import ops
+
 def requeue(queue, n=1):
   out = queue.dequeue(n)
-  vs = [tf.Variable(x, use_resource=True, trainable=False, collections=['local_variables']) for x in out]
+  vs = [tf.Variable(x, use_resource=True, trainable=False, collections=[], name='requeue_%d' % ops.uid()) for x in out]
   with tf.control_dependencies([v.initializer for v in vs]):
     with tf.control_dependencies([queue.enqueue_many([v.read_value() for v in vs])]):
       return [v.read_value() for v in vs]
+
+def requeue_shard_size(queue, shard_size=8):
+  return tf.math.floordiv(queue.queue.size(), shard_size)*shard_size
+
+def requeue_shards(queue, shard_size=8):
+  return requeue(queue, requeue_shard_size(queue, shard_size=shard_size))
+
+from .. import wrapper
+
+def queue_tpu(q, f, *, shard_size=8, **kws):
+  return wrapper.tpu_shard(f, inputs=requeue_shards(q, shard_size=shard_size), **kws)
 
 
 class InputDataset:
