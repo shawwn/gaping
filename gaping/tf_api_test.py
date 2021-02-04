@@ -42,6 +42,8 @@ class TFApiTest(test_utils.GapingTestCase):
       ta = tf_array_mappend(ta, lambda x: [x, x])
       self.assertAllClose([43, 43, 100, 100, 1, 1, 2, 2, 3, 3],
           self.evaluate( ta.stack() ) )
+      ta = tf_array_map(ta, lambda x, i: i)
+      self.assertAllClose(list(range(10)), self.evaluate( ta.stack() ) )
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ from tensorflow.python.ops import tensor_array_ops
 from tensorflow.python.framework import ops
 
 import weakref
+import inspect
 
 
 def refv(name, **kws):
@@ -363,13 +364,20 @@ def tf_string_splits(input, delimiters=[' ', '\n']):
     input = tf_string_split(input, delim)
   return input
 
+def tf_array_fn_needs_index(f):
+  sig = inspect.signature(f)
+  return len(sig.parameters) > 1
+
 def tf_array_map(ta, f, out_dtype=None, *, start=0, parallel_iterations=96, **kws):
   def _while_condition(*args, **kws):
     return tf.convert_to_tensor(True)
   def _while_body(i, a_i, a_o):
     k = tf_i32( i )
     x = a_i.read(k)
-    y = f(x)
+    if tf_array_fn_needs_index(f):
+      y = f(x, i)
+    else:
+      y = f(x)
     return i + 1, a_i, tf_array_write(a_o, k, y)
     #return i + 1, tf_array_write(a, k, x) #  Could not write to TensorArray index 0 because it has already been read.
   ta_out = tf.TensorArray(
@@ -396,7 +404,10 @@ def tf_array_mappend(ta, f, out_dtype=None, *, start=0, **kws):
   def _while_body(i, a_i, a_o):
     k = tf_i32( i )
     x = a_i.read(k)
-    y = f(x)
+    if tf_array_fn_needs_index(f):
+      y = f(x, i)
+    else:
+      y = f(x)
     return i + 1, a_i, tf_array_extend(a_o, y)
     #return i + 1, tf_array_write(a, k, x) #  Could not write to TensorArray index 0 because it has already been read.
   ta_out = tf_array_new(tf_dtype(out_dtype) or tf_array_dtype(ta))
