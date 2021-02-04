@@ -25,9 +25,12 @@ import numpy as np
 import builtins as py
 
 import re
+import os
 
 from typing import TypeVar, Union, Tuple
 #from .. import Tensor
+
+import contextvars as cv
 
 # Create some useful type aliases
 
@@ -196,6 +199,16 @@ class Function(with_metaclass(FunctionMeta)):#, _C._FunctionBase, _ContextMethod
 #     return _Call.apply(x)
     
 
+if 'the_scope' not in globals():
+  the_scope = cv.ContextVar('the_scope', default='')
+
+if 'the_module_stack' not in globals():
+  the_module_stack = cv.ContextVar('the_module_stack', default=OrderedDict())
+
+def get_module():
+  modules = the_module_stack.get()
+  if len(modules) > 0:
+    return list(modules.values())[-1]
 
 def torch_typename(module):
   return type(module)
@@ -437,9 +450,24 @@ class Module(object):
         name = prefix + name
       return name
 
+    @contextmanager
     def scope(self, name=None, index=None, postfix=None, prefix=None, **kwargs):
       name = self.get_scope_name(name=name, index=index, postfix=postfix, prefix=prefix)
-      return tf.variable_scope(name, reuse=tf.AUTO_REUSE, **kwargs)
+      with ExitStack() as stack:
+        scope = tf.variable_scope(name, reuse=tf.AUTO_REUSE, **kwargs)
+        stack.enter_context(scope)
+        scope_name = os.path.join(the_scope.get(), name).replace('/', '.')
+        modules = copy(the_module_stack.get())
+        modules[scope_name] = self
+        print('%sBEGIN_SCOPE' % ('\t' * len(modules)), scope_name, scope)
+        reset_the_scope = the_scope.set(scope_name)
+        reset_the_module_stack = the_module_stack.set(modules)
+        try:
+          yield
+        finally:
+          the_module_stack.reset(reset_the_module_stack)
+          the_scope.reset(reset_the_scope)
+        print('END_SCOPE', scope_name, scope)
 
     def as_default(self):
       parent_scope = self._parent_scope
@@ -619,6 +647,10 @@ class Module(object):
         elif name == '':
             raise KeyError("update name can't be empty string \"\"")
         self._updates[name] = ops
+
+    @property
+    def initializer(self):
+      return [v for k, v in self.named_updates() if k.endswith('__init__')]
 
     def should_update(self):
       if self.training:
@@ -2609,14 +2641,30 @@ def init_(tensor, value):
   with ops.init_scope():
     with tf.control_dependencies([tensor.initializer]):
       initializer_op = tensor.assign(value() if callable(value) else value, read_value=False, use_locking=True)
-      tf.add_to_collection('tftorch_initializers', initializer_op)
+      # tf.add_to_collection('tftorch_initializers', initializer_op)
+      get_module().register_update(tensor.name + '__init__', initializer_op)
 
+
+def fill_(tensor, value):
+  val = tf.fill(size(tensor), tf.cast(value, tensor.dtype))
+  return init_(tensor, val)
+
+
+def constant_(tensor, value):
+  return fill_(tensor, value)
 
 
 def uniform_(tensor, minval, maxval):
   # need to create value in a lambda due to creating variables in while
   # loops on tensorflow
   value = lambda: tf.random.uniform(shape=tensor.shape, minval=minval, maxval=maxval)
+  init_(tensor, value)
+
+
+def normal_(tensor, mean, std):
+  # need to create value in a lambda due to creating variables in while
+  # loops on tensorflow
+  value = lambda: tf.random.normal(shape=tensor.shape, mean=mean, stddev=std)
   init_(tensor, value)
 
 
@@ -2685,6 +2733,41 @@ def kaiming_uniform_(tensor, a=0, mode='fan_in', nonlinearity='leaky_relu'):
     # with torch.no_grad():
     #     return tensor.uniform_(-bound, bound)
     uniform_(tensor, -bound, bound)
+
+
+def kaiming_normal_(tensor, a=0, mode='fan_in', nonlinearity='leaky_relu'):
+    r"""Fills the input `Tensor` with values according to the method
+    described in `Delving deep into rectifiers: Surpassing human-level
+    performance on ImageNet classification` - He, K. et al. (2015), using a
+    normal distribution. The resulting tensor will have values sampled from
+    :math:`\mathcal{N}(0, \text{std}^2)` where
+
+    .. math::
+        \text{std} = \frac{\text{gain}}{\sqrt{\text{fan\_mode}}}
+
+    Also known as He initialization.
+
+    Args:
+        tensor: an n-dimensional `torch.Tensor`
+        a: the negative slope of the rectifier used after this layer (only
+            used with ``'leaky_relu'``)
+        mode: either ``'fan_in'`` (default) or ``'fan_out'``. Choosing ``'fan_in'``
+            preserves the magnitude of the variance of the weights in the
+            forward pass. Choosing ``'fan_out'`` preserves the magnitudes in the
+            backwards pass.
+        nonlinearity: the non-linear function (`nn.functional` name),
+            recommended to use only with ``'relu'`` or ``'leaky_relu'`` (default).
+
+    Examples:
+        >>> w = torch.empty(3, 5)
+        >>> nn.init.kaiming_normal_(w, mode='fan_out', nonlinearity='relu')
+    """
+    fan = _calculate_correct_fan(tensor, mode)
+    gain = calculate_gain(nonlinearity, a)
+    std = gain / math.sqrt(fan)
+    # with torch.no_grad():
+    #     return tensor.normal_(0, std)
+    normal_(tensor, 0.0, std)
 
 
 
@@ -3709,7 +3792,7 @@ def element_count(x):
   return py.int(np.prod(x))
 
 from tensorflow.core.protobuf import config_pb2
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 import time
 
 @contextmanager
@@ -4614,3 +4697,7 @@ class Dropout(_DropoutNd):
         with self.scope():
             return dropout(input, p=self.p, training=self.training, inplace=self.inplace, seed=self.seed)
 
+
+class GroupNorm(Module):
+  def __init__(self, *args, **kws):
+    raise NotImplementedError('TODO')
