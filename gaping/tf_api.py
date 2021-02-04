@@ -214,6 +214,20 @@ def tf_array_scatter(ta, indices, value, *, flow=None, handle=None):
         flow_in=flow )
   return tf_array_copy(ta, flow=next_flow)
 
+def tf_array_gather(ta, indices, *, flow=None, handle=None):
+  if flow is None:
+    flow = tf_array_flow(ta)
+  if handle is None:
+    handle = tf_array_handle(ta)
+  with tf_array_colocate(ta):
+    dtype = tf_array_dtype(ta)
+    indices = tf_verify_indices_in_int32(indices)
+    return tf.raw_ops.TensorArrayGatherV3(
+        handle=handle,
+        indices=indices,
+        dtype=dtype,
+        flow_in=flow )
+
 def tf_array_size(ta, *, flow=None, handle=None):
   if flow is None:
     flow = tf_array_flow(ta)
