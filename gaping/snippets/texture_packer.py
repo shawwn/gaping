@@ -62,9 +62,9 @@ class Node:
     ret = False
     edge_count = 0
     if width == self.width or \
-        height == self.height or \
-        width == self.height or \
-        height == self.width:
+       height == self.height or \
+       width == self.height or \
+       height == self.width:
       if width == self.width:
         edge_count += 1
         if height == self.height:
@@ -146,9 +146,9 @@ class TexturePacker:
     node.next = self.free
     self.free = node
 
-  def pack_textures(self, min_width=0):
-    self.width = 0
-    self.hegith = 0
+  def pack_textures(self):
+    width = self.width
+    height = self.height
     longest_edge = self.calc_longest_edge()
 
     if self.one_pixel_border:
@@ -161,15 +161,16 @@ class TexturePacker:
       longest_edge = nextPow2(longest_edge);
     
 
-    width  = longest_edge;              # The width is no more than the longest edge of any rectangle passed in
-    width = max(min_width, width)
-    count = self.total_area // (longest_edge*longest_edge);
-    height = (count+3)*longest_edge;            # We guess that the height is no more than twice the longest edge.  On exit, this will get shrunk down to the actual tallest height.
+    if width <= 0:
+      width  = longest_edge;              # The width is no more than the longest edge of any rectangle passed in
+    count = self.calc_total_area(placed=False) // (longest_edge*longest_edge);
+    if height <= 0:
+      height = (count+3)*longest_edge;            # We guess that the height is no more than twice the longest edge.  On exit, this will get shrunk down to the actual tallest height.
 
     self.new_free(0,0,width,height)
 
     # We must place each texture
-    for i in range(len(self.textures) + 1):
+    for i in range(len(self.textures)):
       index = 0
       longest_edge = 0
       most_area = 0
@@ -315,6 +316,7 @@ class TexturePacker:
           pass
 
       
+    width = 0
     height = 0
     for t in self.textures:
       if self.one_pixel_border:
@@ -322,9 +324,13 @@ class TexturePacker:
         t.height-=2
         t.x+=1
         t.y+=1
-      y = t.y+t.height
-      if y > height:
-        height = y
+      if t.placed:
+        x = t.x+t.width
+        y = t.y+t.height
+        if x > width:
+          width = x
+        if y > height:
+          height = y
 
     if self.force_power_of_two:
       height = nextPow2(height)
@@ -332,12 +338,11 @@ class TexturePacker:
       width = ((width+3)//4)*4
       height = ((height+3)//4)*4
 
-    return (width*height)-self.total_area, width, height
+    return (width*height)-self.calc_total_area(placed=True), width, height
     #return width, height, count
 
-  @property
-  def total_area(self):
-    return sum([tex.area for tex in self.textures])
+  def calc_total_area(self, placed):
+    return sum([tex.area for tex in self.textures if tex.placed == placed])
 
   def calc_longest_edge(self):
     return max(self.textures, key=lambda tex: tex.longest_edge).longest_edge
@@ -384,3 +389,7 @@ class TexturePacker:
       r.append(Texture(wid,hit,x,y,flipped=t.flipped,placed=t.placed))
     return r
   
+
+# tp = texture_packer.TexturePacker(one_pixel_border=True, force_power_of_two=False, width=4096, height=4096); images = [tft.bytes_to_pil(x) for x in images4]; tp.textures.extend([texture_packer.Texture(*x.size) for x in images]); tp.pack_textures(); area, w, h = _; w, h; image = Image.new('RGBA', (w, h)); draw = ImageDraw.Draw(image); pp([x if x.placed else None for x in tp.get_texture_locations()])
+# [image.alpha_composite((img.transpose(Image.TRANSPOSE) if tex.flipped else img).convert('RGBA'), (tex.x, tex.y)) for tex, img in zip(tp.get_texture_locations(), images) if tex.placed];
+# image.convert('RGB').save('test.jpg', quality=60)
