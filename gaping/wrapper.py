@@ -548,6 +548,43 @@ def tpu_shard(op, device_assignment=None, num_shards=None, outputs_from_all_shar
     num_shards = len(device_assignment.core_assignment)
   return tpu_ops.shard(op, outputs_from_all_shards=outputs_from_all_shards, num_shards=num_shards, device_assignment=device_assignment, **kws)
 
+import contextvars
+
+the_device_assignment = contextvars.ContextVar('the_device_assignment', default=None)
+the_num_replicas = contextvars.ContextVar('the_num_replicas', default=1)
+
+def current_device_assignment():
+  return the_device_assignment.get()
+
+def current_num_replicas():
+  return the_num_replicas.get()
+
+@mock_function('split_compile_and_replicate__capture_device_assignment', tpu_ops, 'split_compile_and_replicate',
+doc="""Captures the current device_assignment for the active TPU replicate() call.""")
+def split_compile_and_replicate__capture_device_assignment(original_fn, lib, computation, *args, **kws):
+  for arg, (name, value) in zip(args, OrderedDict(
+    inputs=None,
+    infeed_queue=None,
+    device_assignment=None,
+    name=None,
+    use_tpu=True,
+    maximum_shapes=None).items()):
+    assert name not in kws
+    kws[name] = arg
+  globals()['kws'] = dict(kws)
+  device_assignment = kws.pop('device_assignment', None)
+  inputs = kws.pop('inputs', None)
+  num_replicas = len([[]] if inputs is None else inputs)
+  try:
+    prev_num_replicas = the_num_replicas.set(num_replicas)
+    prev_device_assignment = the_device_assignment.set(device_assignment)
+    return original_fn(computation, inputs=inputs, device_assignment=device_assignment, **kws)
+  finally:
+    the_num_replicas.reset(prev_num_replicas)
+    the_device_assignment.reset(prev_device_assignment)
+
+
+
 def tpu_id():
   # TODO(iamtingchen): more elegant way to convert u32 to s32 for replica_id.
   replica_id = tf.cast(tf.cast(xla.replica_id(), tf.uint32), tf.int32)
