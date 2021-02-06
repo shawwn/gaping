@@ -242,3 +242,221 @@ def label_image_grid(labels, images):
 def readbytes(filename):
   with tf.io.gfile.GFile(filename, 'rb') as f:
     return f.read()
+
+
+from tensorflow.python.tpu import tpu_function
+
+def replica_count():
+  return tpu_function.get_tpu_context().number_of_shards or 1
+
+
+def tpu_concat(tensor):
+  """Reduce a concatenation of the `tensor` across TPU cores.
+
+  Args:
+    tensor: tensor to concatenate.
+
+  Returns:
+    Tensor of the same rank as `tensor` with first dimension `num_replicas`
+    times larger.
+  """
+  num_replicas = replica_count()
+  replica_id = tpu_id()
+
+  with tf.name_scope('tpu_cross_replica_concat'):
+    # This creates a tensor that is like the input tensor but has an added
+    # replica dimension as the outermost dimension. On each replica it will
+    # contain the local values and zeros for all other values that need to be
+    # fetched from other replicas.
+    ext_tensor = tf.scatter_nd(
+        indices=[[replica_id]],
+        updates=[tensor],
+        shape=[num_replicas] + tensor.shape.as_list())
+
+    # As every value is only present on one replica and 0 in all others, adding
+    # them all together will result in the full tensor on all replicas.
+    ext_tensor = tf.tpu.cross_replica_sum(ext_tensor)
+
+    return ext_tensor
+    # # Flatten the replica dimension.
+    # # The first dimension size will be: tensor.shape[0] * num_replicas
+    # # Using [-1] trick to support also scalar input.
+    # return tf.reshape(ext_tensor, [-1] + ext_tensor.shape.as_list()[2:])
+
+
+def with_device(name, thunk):
+  if hasattr(name, 'name'):
+    name = name.name
+  with tf.device(name):
+    return thunk()
+
+def with_shape(shape, thunk):
+  result = thunk()
+  result.set_shape(shape)
+  return result
+
+
+from tensorflow.python.eager import def_function
+
+# def_function.function(func=None, input_signature=None, autograph=True, experimental_autograph_options=None, experimental_relax_shapes=False, experimental_compile=None)
+
+def defun(fn, compile=True, **kws):
+  # fix the following case:
+  #
+  #   op = tf.raw_ops.TPUPartitionedCall(args=[], device_ordinal=tf.random.uniform([],minval=8, maxval=16, dtype=tf.int32), Tout=[tf.int32], f=tft.defun(lambda: tf.add(0,tft.tpu_id())).get_concrete_function())
+  #
+  # which results in an error: Node '__inference_<lambda>_5267_ord_11_0/XlaReplicaId': Node name contains invalid characters
+  #
+  fn.__name__ = fn.__name__.replace('<lambda>', '__lambda__')
+  return def_function.function(fn, experimental_compile=compile, **kws)
+
+
+from tensorflow.python.framework import ops
+from tensorflow.python.ops import control_flow_ops
+
+
+def enclosing_tpu_context():
+  # pylint: disable=protected-access
+  context = ops.get_default_graph()._get_control_flow_context()
+  # pylint: enable=protected-access
+  while context is not None and not isinstance(
+      context, control_flow_ops.XLAControlFlowContext):
+    context = context.outer_context
+  return context
+
+
+def set(name, value, globals=sys.modules['__main__'].__dict__):
+  globals[name] = value
+  return value
+
+
+from tensorflow.python.framework import indexed_slices
+
+# learned this trick from _colocate_with_for_gradient in tensorflow/tensorflow/python/framework/ops.py
+as_tensor = indexed_slices.internal_convert_to_tensor_or_indexed_slices
+as_list = indexed_slices.internal_convert_n_to_tensor_or_indexed_slices
+
+
+class FakeOp(object):
+  """A helper class to determine the current device.
+
+  Supports only the type and device set/get methods needed to run the
+  graph's _apply_device_function method.
+  """
+
+  def __init__(self):
+    self._device = ""
+
+  @property
+  def type(self):
+    return "FakeOp"
+
+  @property
+  def device(self):
+    return self._device
+
+  def _set_device(self, device):
+    if isinstance(device, pydev.DeviceSpec):
+      self._device = device.to_string()
+    else:
+      self._device = device
+
+  def _set_device_from_string(self, device_str):
+    self._device = device_str
+
+from tensorflow.python.framework import device as pydev
+
+def current_device_name():
+  graph = ops.get_default_graph()
+  fake_op = FakeOp()
+  graph._apply_device_functions(fake_op)  # pylint: disable=protected-access
+  device = pydev.DeviceSpec.from_string(fake_op.device)
+  return device.to_string()
+
+
+from tensorflow.python.framework import device_spec
+from collections import OrderedDict
+
+def normalize_device_name(name=None, *, toplevel=True, **kws):
+  if toplevel:
+    if len(kws) > 0:
+      name = (name or '') + ' ' + '/'.join([':'.join([k, str(v)]) for k, v in kws.items()])
+    if name is None:
+      return name
+    name = name.replace('=', ':')
+    name = name.replace(' ', '/')
+    name = name.replace(',', '/')
+    name = name.strip('/')
+    if 'device:' not in name:
+      name = 'device:' + name
+    parts = [normalize_device_name(x, toplevel=False) for x in name.split('/')]
+    parts = [x for x in parts if x]
+    props = OrderedDict([x.split(':', 1) for x in parts])
+    # this is probably a bad idea; skip for now.
+    # if 'device' in props:
+    #   if ':' in props['device']:
+    #     kind, core = props['device'].rsplit(':', 1)
+    #     if core == '*':
+    #       core = '0'
+    #     props['core'] = str(int(props.pop('core', '0')) + int(core))
+    #     props['device'] = kind
+    # if 'device' in props:
+    #   task = int(props.pop('task', '0'))
+    #   if 'core' in props and props['core'] != '*':
+    #     task = 0
+    #   core = props.pop('core', '*')
+    #   if core == '*':
+    #     core = 0
+    #   else:
+    #     core = int(core)
+    #   cores_per_task = 8 if props['device'].startswith('TPU') else 1
+    #   print('CORE', core, task)
+    #   # while task > 0:
+    #   #   core += cores_per_task
+    #   #   task -= 1
+    #   print('CORE', core, task)
+    #   while core >= cores_per_task:
+    #     task += 1
+    #     core -= cores_per_task
+    #   props['task'] = str(task)
+    #   props['device'] = props.pop('device').split(':', 1)[0] + ':' + str(core)
+    final = '/' + '/'.join([':'.join([k, v]) for k, v in props.items()])
+    return final
+  if not name:
+    return name
+  if ':' not in name:
+    name = 'device:{}'.format(name.upper())
+  name, kind, *value = name.split(':')
+  if name == 'device' and not value:
+    value += ['*']
+  if name.upper() in ['CPU', 'GPU', 'TPU', 'TPU_SYSTEM']:
+    name, kind, value = 'device', name, [kind] + value
+  if name == 'device':
+    kind = kind.upper()
+  if kind == 'XLA':
+    kind = 'XLA_CPU'
+  if kind == 'CORE':
+    kind = 'TPU_REPLICATED_CORE'
+  assert not (name == 'job' and kind == 'master'), "I kept typing job=master instead of job=worker, so this is a personal sanity check"
+  return ':'.join([name, kind, *value])
+
+def parse_device_name(name=None, **kws):
+  if name is None:
+    name = current_device_name()
+  if not isinstance(name, str):
+    # assume it's a DeviceSpec
+    name = name.to_string()
+  name = normalize_device_name(name, **kws)
+  spec = device_spec.DeviceSpecV2()
+  spec = spec.parse_from_string(name)
+  return spec
+
+def device_name(name=None, **kws):
+  return parse_device_name(name, **kws).to_string()
+
+def device(name=None, **kws):
+  return tf.device(device_name(name, **kws))
+
+def with_device(name, thunk):
+  with device(name):
+    return thunk()
