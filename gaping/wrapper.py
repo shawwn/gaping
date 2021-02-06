@@ -305,7 +305,8 @@ def create_session_config():
     )
   session_config = config_pb2.ConfigProto(
     graph_options=graph_options,
-    allow_soft_placement=True,
+    #allow_soft_placement=True,
+    allow_soft_placement=False,
     isolate_session_state=False,
     )
   # share variables across sessions on TPUs
