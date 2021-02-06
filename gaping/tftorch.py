@@ -31,6 +31,7 @@ from typing import TypeVar, Union, Tuple
 #from .. import Tensor
 
 import contextvars as cv
+from contextlib import contextmanager, ExitStack
 
 # Create some useful type aliases
 
@@ -3792,7 +3793,6 @@ def element_count(x):
   return py.int(np.prod(x))
 
 from tensorflow.core.protobuf import config_pb2
-from contextlib import contextmanager, ExitStack
 import time
 
 @contextmanager
