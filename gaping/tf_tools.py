@@ -460,3 +460,13 @@ def device(name=None, **kws):
 def with_device(name, thunk):
   with device(name):
     return thunk()
+
+
+import contextlib
+
+# from ./mesh_tensorflow/utils.py
+
+@contextlib.contextmanager
+def outside_all_rewrites():
+  with ops.control_dependencies(None):
+    yield
