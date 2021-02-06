@@ -1,0 +1,1387 @@
+None
+import tensorflow as tf
+sess = tf.InteractiveSession('grpc://10.42.0.14:8470')
+sess.list_devices()
+res = tf.contrib.tpu.TPUClusterResolver
+res = tf.distribute.tpu.TPUClusterResolver
+res = tf.distribute.TPUClusterResolver
+from tensorflow.python.distribute.cluster_resolver import TPUClusterResolver as BaseTPUClusterResolver
+res = BaseTPUClusterResolver('tpu-v2-512-usc1a-40')
+from tensorflow.python.distribute.cluster_resolver import TPUClusterResolver as BaseTPUClusterResolver
+res = BaseTPUClusterResolver('tpu-v2-512-usc1a-40')
+res.get_master()
+res = BaseTPUClusterResolver('tpu-v2-512-usc1a-40')
+from tensorflow.python.distribute.cluster_resolver import TPUClusterResolver as BaseTPUClusterResolver
+res = BaseTPUClusterResolver('tpu-v2-512-usc1a-40'); res.get_master()
+import google.cloud
+tpu_topology
+tpu_topology = get_topology()
+tpu_topology
+dir(tpu_topology)
+pp(tpu_topology)
+pp(tpu_topology.device_coordinates)
+pp(tpu_topology.mesh_shape)
+tpu_topology.mesh_rank
+pp(tpu_topology.device_coordinates.shape)
+tpu_topology.mesh_rank
+pp( tpu_topology.device_coordinates )
+get_core_assignment(0)
+dir(get_core_assignment(0))
+get_core_assignment(0).coordinates
+get_core_assignment(0).coordinates()
+get_core_assignment(0).coordinates(0, 0)
+get_core_assignment(0, 1).coordinates(0, 0)
+get_core_assignment(0, 1).coordinates(0, 1)
+get_core_assignment(0, 1).coordinates(1, 0)
+get_device_assignment(1)
+dir(get_device_assignment(1))
+get_device_assignment(1).num_cores_per_replica()
+get_device_assignment(1).num_cores_per_replica
+get_device_assignment(2).num_cores_per_replica
+get_device_assignment(4).num_cores_per_replica
+get_device_assignment(16).num_cores_per_replica
+get_device_assignment(32).num_cores_per_replica
+get_core_assignment(0,1)
+res
+get_topology()
+tpu_topology = get_topology()
+dir(tpu_topology)
+tpu_topology._topology_devices
+tpu_topology._topology_devices.shape
+tpu_topology._topology_tasks.shape
+tpu_topology._topology_tasks
+tpu_topology._topology_devices
+tpu_topology._topology_devices.reshape
+tpu_topology._topology_devices.reshape(-1)
+len(tpu_topology._topology_devices.reshape(-1))
+res
+len(tpu_topology._topology_devices.reshape(-1))
+get_topology(res)
+get_tpu_name(res)
+cached_topology(res)
+get_tpu_resolver(res)
+get_topology(res)
+get_tpu_name(res)
+topology_cache
+pp(topology_cache)
+get_tpu_name(res)
+get_tpu_name()
+get_tpu_resoolver()
+get_tpu_resolver()
+get_task_and_cores_to_replicas(get_topology())
+pp(get_task_and_cores_to_replicas(get_topology()))
+[len(x) for x in get_task_and_cores_to_replicas(get_topology())]
+[len(x) for x in get_task_and_cores_to_replicas(get_topology()).values()]
+sum([len(x) for x in get_task_and_cores_to_replicas(get_topology()).values()])
+get_core_assignment(0,1)
+get_core_assignment(0,1)._task_and_cores_to_replicas
+get_core_assignment(0,1,16)._task_and_cores_to_replicas
+get_core_assignment(0,1,2,3,4,5,6,7)._task_and_cores_to_replicas
+get_core_assignment(0,1,2,3,4,5,6,7,8)._task_and_cores_to_replicas
+get_core_assignment(0,1,2,3,4,5,6,7,8)
+get_topology().device_coordinates
+get_topology().device_coordinates.reshape(-1, 4)
+def get_tpu_cores(topology=None):
+  if topology is None:
+    topology = cached_topology()
+  if topology is None:
+    return []
+  return topology.device_coordinates.reshape([-1, topology.device_coordinates.shape[-1]])
+get_tpu_cores()
+len(get_tpu_cores())
+get_tpu_cores()[2,3]
+get_tpu_cores()[2]
+get_tpu_cores()[[2,3]]
+(lambda *cores: get_tpu_cores()[cores])(0,1)
+(lambda *cores: get_tpu_cores()[[cores]])(0,1)
+(lambda *cores: get_tpu_cores()[[tuple(cores)]])(0,1)
+def get_tpu_cores(topology=None):
+  if topology is None:
+    topology = cached_topology()
+  if topology is None:
+    return []
+  return topology.device_coordinates.reshape([-1, topology.device_coordinates.shape[-1]])
+(lambda *cores: get_tpu_cores()[[tuple(cores)]])(0,1)
+(lambda *cores: get_tpu_cores()[np.array(cores, dtype=np.int32)])(0,1)
+(lambda *cores: get_tpu_cores()[np.array(cores, dtype=np.int32)])(3,4)
+def get_tpu_cores(cores=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  if topology is None:
+    return []
+  all_cores = topology.device_coordinates.reshape([-1, topology.device_coordinates.shape[-1]])
+  if cores is not None:
+    cores = np.array(cores, dtype=np.int32)
+    return all_cores[cores]
+  return all_cores
+from tensorflow.python.tpu import device_assignment as device_assignment_lib
+def get_task_and_cores_to_replicas(topology=None):
+  if topology is None:
+    topology = cached_topology()
+  return device_assignment_lib._compute_task_and_cores_to_replicas(topology.device_coordinates, topology)
+def get_core_assignment(cores=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  return device_assignment_lib.DeviceAssignment(topology, get_tpu_cores(cores=cores, topology=topology))
+get_core_assignment([1,2,3])
+get_tpu_cores([1,2,3])
+tpu_topology
+topology = tpu_topology
+[[topology.device_coordinates[0][i]] for i in core_ids]
+[[topology.device_coordinates[0][i]] for i in [1,2,3]]
+pp([[topology.device_coordinates[0][i]] for i in [1,2,3]])
+[[topology.device_coordinates[0][i]] for i in [1,2,3]]
+pp([[topology.device_coordinates[0][i]] for i in [1,2,3]])
+np.array([[topology.device_coordinates[0][i]] for i in [1,2,3]])
+np.array([[topology.device_coordinates[0][i]] for i in [1,2,3]]).shape
+np.array([[topology.device_coordinates[0][i]] for i in [1,2,3]])
+pp([[topology.device_coordinates[0][i]] for i in [1,2,3]])
+get_tpu_cores([1,2,3])
+get_tpu_cores([1,2,3]).shape
+get_tpu_cores()
+topology.device_coordinates.shape
+topology.device_coordinates
+topology.device_coordies
+topology.device_coordines
+topology.device_coordinates
+ for x in topology.device_coordinates]
+[x for x in topology.device_coordinates]
+[task for task in topology.device_coordinates]
+[[core for core in task] for task in topology.device_coordinates]
+pp([[core for core in task] for task in topology.device_coordinates])
+pp([[core for core_idx, core in enumerate(task)] for task_idx, task in enumerate(topology.device_coordinates)])
+pp([[core for core_idx, core in enumerate(task) if core_idx < 3] for task_idx, task in enumerate(topology.device_coordinates)])
+pp([[core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 3] for task_idx, task in enumerate(topology.device_coordinates)])
+pp(np.array([[core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 3] for task_idx, task in enumerate(topology.device_coordinates)]))
+pp(np.array([[core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 3] for task_idx, task in enumerate(topology.device_coordinates)]), dtype=np.int32)
+pp(np.array([[core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 3] for task_idx, task in enumerate(topology.device_coordinates)], dtype=np.int32))
+pp([[core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 3] for task_idx, task in enumerate(topology.device_coordinates)])
+pp([np.array([core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 3], dtype=np.int32) for task_idx, task in enumerate(topology.device_coordinates)])
+pp(np.array([np.array([core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 3], dtype=np.int32) for task_idx, task in enumerate(topology.device_coordinates)]))
+pp(np.array([np.array([core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 3], dtype=np.int32) for task_idx, task in enumerate(topology.device_coordinates)], dtype=np.int32))
+pp([[core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 3] for task_idx, task in enumerate(topology.device_coordinates)])
+pp([x for x in [[core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 3] for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0])
+pp(np.array([x for x in [[core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 3] for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0]))
+pp(np.array([x for x in [[core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 3] for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0]).shape)
+pp(np.array([x for x in [[core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 15] for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0]).shape)
+pp(np.array([x for x in [[core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 15] for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0]))
+pp(np.array([x for x in [np.array([core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 15], dtype=np.int32) for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0]))
+pp(np.array([x for x in [np.array([core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 15], dtype=np.int32) for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0], dtype=np.int32))
+pp([x for x in [np.array([core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 15], dtype=np.int32) for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0]))
+pp([x for x in [np.array([core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) < 15], dtype=np.int32) for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0])
+pp([x for x in [np.array([core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) % 2 == 0], dtype=np.int32) for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0])
+np.array([x for x in [np.array([core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) % 2 == 0], dtype=np.int32) for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0])
+np.array([x for x in [np.array([core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) % 2 == 0], dtype=np.int32) for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0]).shape
+np.array([x for x in [np.array([core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) % 3 == 0], dtype=np.int32) for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0]).shape
+np.array([x for x in [np.array([core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) % 3 == 0], dtype=np.int32) for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0])
+np.array([x for x in [np.array([core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) % 3 == 0], dtype=np.int32) for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0], dtype=np.int32)
+[x for x in [np.array([core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) % 3 == 0], dtype=np.int32) for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0]
+pp([x for x in [np.array([core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) % 3 == 0], dtype=np.int32) for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0])
+pp([x.shape for x in [np.array([core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) % 3 == 0], dtype=np.int32) for task_idx, task in enumerate(topology.device_coordinates)] if len(x) > 0])
+[[topology.device_coordinates[0][i]] for i in core_ids]
+core_ids = [3,4,5]
+[[topology.device_coordinates[0][i]] for i in core_ids]
+[[topology.device_coordinates[i//8][i%8]] for i in core_ids]
+core_ids = [3,4,15]
+[[topology.device_coordinates[i//8][i%8]] for i in core_ids]
+pp([[topology.device_coordinates[i//8][i%8]] for i in core_ids])
+def get_core_assignment(cores=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  return device_assignment_lib.DeviceAssignment(topology, [[topology.device_coordinates[i//8][i%8]] for i in core_ids])
+get_core_assignment([1,3,15])
+dir(get_core_assignment([1,3,15]))
+get_core_assignment([1,3,15])._topology
+dir(get_core_assignment([1,3,15])._topology)
+get_core_assignment([1,3,15])._topology._topology_devices
+corez = get_core_assignment([1,3,15])
+cores.num_replicas
+corez.num_replicas
+get_core_assignment([1,3,15]).num_replicas
+get_core_assignment(range(32)).num_replicas
+get_core_assignment(range(32)).num_cores_per_replica
+get_core_assignment(list(range(32))).num_cores_per_replica
+dir(get_core_assignment([1,3,15]))
+get_core_assignment(range(32)).coordinates
+get_core_assignment(range(32)).coordinates()
+get_core_assignment(range(32)).coordinates(0,0)
+get_core_assignment(range(32)).coordinates(0,1)
+get_core_assignment(range(32)).coordinates(0,0)
+get_core_assignment(range(32)).coordinates(1,0)
+get_core_assignment(range(32)).coordinates(2,0)
+get_core_assignment(range(32)).coordinates(3,0)
+def get_core_assignment(core_ids=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  return device_assignment_lib.DeviceAssignment(topology, [[topology.device_coordinates[i//8][i%8]] for i in core_ids])
+get_core_assignment(range(32)).num_replicas
+core_ids
+[[topology.device_coordinates[i//8][i%8]] for i in core_ids]
+len([[topology.device_coordinates[i//8][i%8]] for i in core_ids])
+pp([[topology.device_coordinates[i//8][i%8]] for i in core_ids])
+pp([[topology.device_coordinates[i//8][i%8]] for i in range(32)])
+[[core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) in core_ids] for task_idx, task in enumerate(topology.device_coordinates)]
+def get_tpu_cores(core_ids=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  if topology is None:
+    return []
+  all_cores = topology.device_coordinates.reshape([-1, topology.device_coordinates.shape[-1]])
+  if core_ids is not None:
+    coords = []
+    for task_idx, task in enumerate(topology.device_coordinates):
+      for core_idx, core in enumerate(task):
+        core_id = (core_idx + task_idx*len(topology.device_coordinates[task_idx]))
+        if core_id in core_ids:
+          coords.append(core)
+    return coords
+    # cores = [[core for core_idx, core in enumerate(task) if (core_idx + task_idx*len(topology.device_coordinates[task_idx])) in core_ids] for task_idx, task in enumerate(topology.device_coordinates)]
+    # #core_ids = np.array(cores, dtype=np.int32)
+    # return all_cores[cores]
+  return all_cores
+get_tpu_cores()
+get_tpu_cores([1,3,15])
+device_assignment_lib.DeviceAssignment(topology, get_tpu_cores([1,3,15]))
+get_device_assignment(2)
+that = _
+dir(that)
+that.coordinates
+that.coordinates()
+that.core_assignment
+get_device_assignment(2).core_assignment
+get_device_assignment(4).core_assignment
+get_device_assignment(3).core_assignment
+get_device_assignment(3, computation_shape=[2,1,1,1]).core_assignment
+get_device_assignment(4, computation_shape=[2,1,1,1]).core_assignment
+get_device_assignment(16, computation_shape=[2,1,1,1]).core_assignment
+get_device_assignment(32, computation_shape=[1,1,1,1]).core_assignment
+get_device_assignment(16, computation_shape=[2,1,1,1]).core_assignment
+get_device_assignment(16, computation_shape=[2,2,1,1]).core_assignment
+get_device_assignment(8, computation_shape=[2,2,1,1]).core_assignment
+def get_device_assignment(num_replicas, computation_shape=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  if computation_shape is None:
+    computation_shape = 1
+  if isinstance(computation_shape, int):
+    computation_shape = [1, 1, 1, computation_shape]
+  device_assignment = tf.tpu.experimental.DeviceAssignment.build(topology, computation_shape=computation_shape, num_replicas=num_replicas)
+  return device_assignment
+get_device_assignment(2)
+get_device_assignment(2).core_assignment
+get_device_assignment(2,2).core_assignment
+get_device_assignment(2,3).core_assignment
+4*4*2
+get_device_assignment(2,[2,1,1,2]).core_assignment
+get_device_assignment(2,[1,2,1,2]).core_assignment
+get_device_assignment(2,[4,1,1,2]).core_assignment
+get_device_assignment(10,[4,1,1,2]).core_assignment
+get_device_assignment(10,[1,1,1,2]).core_assignment
+get_device_assignment(10,[1,1,1,1]).core_assignment
+get_device_assignment(10,[1,1,1,1]).core_assignment.shape
+get_device_assignment(10,[1,1,1,2]).core_assignment.shape
+num_replicas = 15
+topology
+topology.mesh_shape
+topology.mesh_shape[:]
+topology.mesh_shape.copy()
+[i for i in topology.mesh_shape.copy()]
+dir(topology.mesh_shape.copy())
+topology.mesh_shape.copy()[x > 0]
+topology.mesh_shape.copy()[[x > 0] for x in 10]
+topology.mesh_shape.copy()[[[x > 0] for x in 10]]
+a=topology.mesh_shape.copy()
+a.agwhere
+a.argwhere
+np.argwhere
+a
+np.argwhere(a > 1)
+np.argwhere(a > 1)[::-1]
+def _open_ring_2d(x_size, y_size, z_coord):
+  """Ring-order of a X by Y mesh, with a fixed Z coordinate.
+  For example, in a 4x4 mesh, this returns the following order.
+    0 -- 1 -- 2 -- 3
+    |    |    |    |
+    15-- 6 -- 5 -- 4
+    |    |    |    |
+    14-- 7 -- 8 -- 9
+    |    |    |    |
+    13-- 12-- 11-- 10
+  Note that chip 0 is not included in the output.
+  Args:
+    x_size: An integer represents the mesh size in the x-dimension. Must be
+      larger than 1.
+    y_size: An integer represents the mesh size in the y-dimension. Must be
+      larger than 1.
+    z_coord: An integer represents the z-coordinate to use for the chips in the
+      ring.
+  Returns:
+    A list of (x,y,z) triples in ring order.
+  """
+  ret = []
+  for i in range(y_size // 2):
+    for j in range(1, x_size):
+      ret.append((j, 2 * i, z_coord))
+    for j in range(x_size - 1, 0, -1):
+      ret.append((j, 2 * i + 1, z_coord))
+  for i in range(y_size - 1, 0, -1):
+    ret.append((0, i, z_coord))
+  return ret
+_open_ring_2d(2,3,1)
+def _ring_2d(height, width):
+  """Ring-order of a height x width mesh.
+  For example, in a 4x4 mesh, this returns the following order.
+    0 -- 1 -- 2 -- 3
+    |    |    |    |
+    15-- 6 -- 5 -- 4
+    |    |    |    |
+    14-- 7 -- 8 -- 9
+    |    |    |    |
+    13-- 12-- 11-- 10
+  Args:
+    height: An integer represents the height.
+    width: An integer represents the width.
+  Returns:
+    A list of [y, x] pairs with ring order.
+  """
+  if height == 1:
+    return [(0, i) for i in range(width)]
+  if width == 1:
+    return [(i, 0) for i in range(height)]
+  if height % 2 != 0:
+    logging.warning("Odd dimension")
+    return [(i % height, i // height) for i in range(width * height)]
+  ret = [(0, 0)]
+  for i in range(height // 2):
+    for j in range(1, width):
+      ret.append((2 * i, j))
+    for j in range(width - 1, 0, -1):
+      ret.append((2 * i + 1, j))
+  for i in range(height - 1, 0, -1):
+    ret.append((i, 0))
+  return ret
+_ring_2d(1,1)
+_ring_2d(1,4)
+_ring_2d(2,4)
+_open_ring_2d(2,4,1)
+_open_ring_2d(2,4,0)
+[x[::-1][0:2] for x in _open_ring_2d(2,4,0)]
+_ring_2d(2,4)
+[x[::-1][[0,2]] for x in _open_ring_2d(2,4,0)]
+[np.array(x[::-1])[[0,2]] for x in _open_ring_2d(2,4,0)]
+[list(np.array(x[::-1])[[0,2]]) for x in _open_ring_2d(2,4,0)]
+[list(np.array(x[::-1])[[0,1]]) for x in _open_ring_2d(2,4,0)]
+[list(np.array(x[::-1])[[0,1,2]]) for x in _open_ring_2d(2,4,0)]
+[list(np.array(x[::-1])[[0,1,2]]) for x in _open_ring_2d(4,4,0)]
+pp([list(np.array(x[::-1])[[0,1,2]]) for x in _open_ring_2d(4,4,0)])
+def _ring_3d(x_size, y_size, z_size):
+  """Ring-order of a X by Y by Z mesh.
+  Constructs the 3d ring from 2d rings that are stacked in the Z dimension and
+  joined in one corner.
+  z == 0:
+    0 -- 1 -- 2 -- 3
+    |    |    |    |
+    15 - 6 -- 5 -- 4
+    |    |    |    |
+    14 - 7 -- 8 -- 9
+    |    |    |    |
+    13 - 12 - 11 - 10
+  z == 1:
+    63 - 30 - 29 - 28
+    |    |    |    |
+    16 - 25 - 26 - 27
+    |    |    |    |
+    17 - 24 - 23 - 22
+    |    |    |    |
+    18 - 19 - 20 - 21
+  z == 2:
+    62 - 31 - 32 - 33
+    |    |    |    |
+    45 - 36 - 35 - 34
+    |    |    |    |
+    44 - 37 - 38 - 39
+    |    |    |    |
+    43 - 42 - 41 - 40
+  z == 3:
+    61 - 60 - 59 - 58
+    |    |    |    |
+    46 - 55 - 56 - 57
+    |    |    |    |
+    47 - 54 - 53 - 52
+    |    |    |    |
+    48 - 49 - 50 - 51
+  Args:
+    x_size: An integer represents the mesh size in the x-dimension. Must be
+      larger than 1.
+    y_size: An integer represents the mesh size in the y-dimension. Must be
+      larger than 1.
+    z_size: An integer represents the mesh size in the z-dimension. Must be
+      larger than 1.  For example, in a 4x4x4 mesh, this returns the following
+      order.
+  Returns:
+    A list of (x,y,z) triples in ring order.
+  """
+  # Handle the case where 2 dimensions are size 1.
+  if x_size == 1 and y_size == 1:
+    return [(0, 0, i) for i in range(z_size)]
+  if x_size == 1 and z_size == 1:
+    return [(0, i, 0) for i in range(y_size)]
+  if y_size == 1 and z_size == 1:
+    return [(i, 0, 0) for i in range(x_size)]
+  # Handle odd mesh dimensions.  This never happens in practice, so we don't
+  # bother to try building something optimal.
+  if (x_size > 1 and x_size % 2 != 0) or (y_size > 1 and
+                                          y_size % 2 != 0) or (z_size > 1 and
+                                                               z_size % 2 != 0):
+    logging.warning("Odd dimension")
+    ret = []
+    for z in range(z_size):
+      for y in range(y_size):
+        ret.extend((x, y, z) for x in range(x_size))
+    return ret
+  # Always start with chip 0.
+  ret = [(0, 0, 0)]
+  # Handle the case where one dimension is size 1.  We just build a flat, 2d
+  # ring.
+  if z_size == 1:
+    ret.extend(_open_ring_2d(x_size, y_size, 0))
+    return ret
+  if y_size == 1:
+    ret = [(0, 0, 0)]
+    ret.extend((x, y, z) for (x, z, y) in _open_ring_2d(x_size, z_size, 0))
+    return ret
+  if x_size == 1:
+    ret = [(0, 0, 0)]
+    ret.extend((x, y, z) for (y, z, x) in _open_ring_2d(y_size, z_size, 0))
+    return ret
+  # Handle the case where all dimensions have size > 1 and even.
+  ret = [(0, 0, 0)]
+  for i in range(0, z_size):
+    r = _open_ring_2d(x_size, y_size, i)
+    if i % 2 == 0:
+      ret.extend(r)
+    else:
+      ret.extend(reversed(r))
+  for i in range(z_size - 1, 0, -1):
+    ret.append((0, 0, i))
+  return ret
+_ring_3d(2,2,3)
+_ring_3d(2,2,2)
+pp(_ring_3d(2,2,2))
+pp(_ring_3d(4,4,2))
+pp(_ring_3d(4,2,2))
+len(pp(_ring_3d(4,2,2)))
+len((_ring_3d(4,2,2)))
+len((_ring_3d(2,4,2)))
+from tensorflow.compiler.tf2xla.python import xla
+pp(dir(xla))
+from tensorflow.compiler.tf2xla.ops import gen_xla_ops
+pp(dir( gen_xla_ops ))
+xla.__module__
+xla.__file__
+get_device_assignment(10,[1,1,1,2]).core_assignment.shape
+ass = get_device_assignment(10,[1,1,1,2])
+ass.host_device
+ass.host_device(replica=0, logical_core=0)
+ass.host_device(replica=9, logical_core=0)
+ass.tpu_ordinal(replica=9, logical_core=0)
+[ass.tpu_ordinal(replica=i, logical_core=0) for i in range(10)]
+[(ass.host_device(replica=i, logical_core=0), ass.tpu_ordinal(replica=i, logical_core=0)) for i in range(10)]
+pp([(ass.host_device(replica=i, logical_core=0), ass.tpu_ordinal(replica=i, logical_core=0)) for i in range(10)])
+that = get_device_assignment(4, [1, 1, 1, 2])
+pp([[that.coordinates(i,j) for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+that = get_device_assignment(32//2, [1, 1, 1, 2])
+pp([[that.coordinates(i,j) for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+that = get_device_assignment(32//4, [2, 2, 1, 1])
+pp([[that.coordinates(i,j) for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+that = get_device_assignment(32//4, [2, 1, 1, 2])
+pp([[that.coordinates(i,j) for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+that = get_device_assignment(32//2, [1, 1, 1, 2])
+pp([[that.coordinates(i,j) for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+that = get_device_assignment(32//2, [2, 1, 1, 1])
+pp([[that.coordinates(i,j) for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+get_task_and_cores_to_replicas(that)
+that.topology
+get_task_and_cores_to_replicas(that.topology)
+pp(get_task_and_cores_to_replicas(that.topology))
+that = get_device_assignment(32//4, [2, 2, 1, 1])
+pp(get_task_and_cores_to_replicas(that.topology))
+pp([[that.coordinates(i,j) for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+help(that.lookup_replicas)
+that.lookup_replicas(0,0)
+that.lookup_replicas(0,1)
+that.lookup_replicas(0,2)
+that.lookup_replicas(0,3)
+that.lookup_replicas(0,4)
+that.lookup_replicas(0,3)
+that.lookup_replicas(1,0)
+that.lookup_replicas(1,1)
+that.lookup_replicas(1,2)
+that.lookup_replicas(1,3)
+that.lookup_replicas(2,3)
+that = get_device_assignment(32//2, [1, 1, 1, 2])
+that.lookup_replicas(2,3)
+that.lookup_replicas(2,2)
+that.lookup_replicas(2,1)
+that.lookup_replicas(0,1)
+that.lookup_replicas(0,0)
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+that = get_device_assignment(32//4, [1, 1, 1, 2])
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+that = get_device_assignment(32//4, [2, 1, 1, 2])
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+that = get_device_assignment(32//4, [2, 1, 1, 2])
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+that = get_device_assignment(32//4, [1, 2, 1, 2])
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+that = get_device_assignment(32//8, [2, 2, 1, 2])
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)][0])
+that = get_device_assignment(32, [1,1,1,1])
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+that = get_device_assignment(32//4, [2,2,1,1])
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+that = get_device_assignment(32//4, [2,1,1,2])
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)])
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)][0])
+that = get_device_assignment(32//4, [1,2,1,2])
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)][0])
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)][0:2])
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)][0:4])
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)][0:4:2])
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)][::2])
+pp(get_task_and_cores_to_replicas(that.topology))
+dir(that)
+help(that.build)
+that = tf.tpu.experimental.DeviceAssignment.build(get_topology(), [2,2,1,1], [1,1,1,2], 2)
+pp([[{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)} for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)][::2])
+([print([{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)} for j in range(that.num_cores_per_replica)]) for i in range(that.num_replicas)][::2])
+([pp([{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)} for j in range(that.num_cores_per_replica)]) for i in range(that.num_replicas)][::2])
+([([print({'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)}) for j in range(that.num_cores_per_replica)]) for i in range(that.num_replicas)][::2])
+[[print({'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)}) for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)]
+_=[[print({'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)}) for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)]
+[[print({'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)}) for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)];
+[[print({'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)}) for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)]; _
+_=[[print({'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)}) for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)]
+that = tf.tpu.experimental.DeviceAssignment.build(get_topology(), [2,2,1,1], [1,1,1,2], 32//4)
+32//4
+_=[[print({'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)}) for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)]
+_=[print('---') or [print({'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)}) for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)]
+_=[print('--- replica %d ---' % i) or [print({'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)}) for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)]
+dir(device_assignment_lib)
+help( device_assignment_lib.device_assignment )
+pp(dir(xla))
+operand = np.arange(10, dtype=np.int32).reshape([2, 5])
+operand
+start_indices = np.array([2], np.int32)
+slice_sizes = np.array([1, 3], np.int32)
+start_indices
+slice_sizes
+(np.arange(4, dtype=np.int32).astype(dtype).reshape([2, 2]),)
+dtype = np.float32
+(np.arange(4, dtype=np.int32).astype(dtype).reshape([2, 2]),)
+dtype = np.int32
+(np.arange(4, dtype=np.int32).astype(dtype).reshape([2, 2]),)
+(np.arange(4, dtype=np.int32).astype(dtype).reshape([2, 2]),)[0]
+[[7, 7, 7, 7, 7], [7, 7, 7, 7, 7], [7, 0, 1, 7, 7],
+               [7, 7, 7, 7, 7], [7, 2, 3, 7, 7], [7, 7, 7, 7, 7]]
+[[7, 7, 7, 7, 7], [7, 7, 7, 7, 7], [7, 0, 1, 7, 7], [7, 7, 7, 7, 7], [7, 2, 3, 7, 7], [7, 7, 7, 7, 7]]
+pp([[7, 7, 7, 7, 7], [7, 7, 7, 7, 7], [7, 0, 1, 7, 7], [7, 7, 7, 7, 7], [7, 2, 3, 7, 7], [7, 7, 7, 7, 7]])
+pp([[7, 7, 1, 7], [7, 7, 7, 7], [7, 7, 4, 7], [7, 7, 7, 7]])
+[pp(x) for x in [[7, 7, 1, 7], [7, 7, 7, 7], [7, 7, 4, 7], [7, 7, 7, 7]])]
+[pp(x) for x in [[7, 7, 1, 7], [7, 7, 7, 7], [7, 7, 4, 7], [7, 7, 7, 7]]]
+(np.arange(6, dtype=np.int32).astype(dtype).reshape([2, 3]),)
+(np.arange(6, dtype=np.int32).astype(dtype).reshape([2, 3]),)[0]
+(np.arange(12, dtype=np.int32).astype(dtype).reshape([3, 4]),)
+(np.arange(12, dtype=np.int32).astype(dtype).reshape([3, 4]),)[0]
+9+5+1
+(np.arange(12, dtype=np.int32).astype(dtype).reshape([3, 4]),)[0].shape
+4+5+6+7
+operand, source = (np.array([[7, 2, 5, 3, 8], [3, 8, 9, 3, 4], [1, 5, 7, 5, 6], [0, 6, 2, 10, 2]], dtype=dtype).reshape((4, 5, 1, 1)), np.array([[2, 6], [3, 1]], dtype=dtype).reshape((2, 2, 1, 1))); operand, source
+operand, source = (np.array([[7, 2, 5, 3, 8], [3, 8, 9, 3, 4], [1, 5, 7, 5, 6], [0, 6, 2, 10, 2]], dtype=dtype).reshape((4, 5, 1, 1)), np.array([[2, 6], [3, 1]], dtype=dtype).reshape((2, 2, 1, 1))); operand; source;
+np.array([[0, 0, 0, 0, 0], [0, 0, 8, 0, 0], [0, 0, 3, 0, 0], [0, 0, 0, 1, 0]], dtype=dtype).reshape((4, 5, 1, 1))
+([pp([{'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)} for j in range(that.num_cores_per_replica)]) for i in range(that.num_replicas)][::2])
+_=[print('--- replica %d ---' % i) or [print({'coordinate': that.coordinates(i,j), 'host': that.host_device(i,j), 'core': that.tpu_device(i,j), 'ordinal': that.tpu_ordinal(i,j)}) for j in range(that.num_cores_per_replica)] for i in range(that.num_replicas)]
+topo = cached_topology()
+topo.num_tasks
+topo.num_tpus_per_task
+pp([[topo.task_ordinal_at_coordinates( core ) for core in task] for task in topo.device_coordinates])
+pp([[(topo.tpu_device_ordinal_at_coordinates( core), topo.task_ordinal_at_coordinates( core )) for core in task] for task in topo.device_coordinates])
+def get_device_assignment(num_replicas, computation_shape=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  if computation_shape is None:
+    computation_shape = [1, 1, 1, 1]
+  device_assignment = tf.tpu.experimental.DeviceAssignment.build(topology, computation_shape=computation_shape, num_replicas=num_replicas)
+  return device_assignment
+topo.num_tasks * topo.num_tpus_per_task
+def get_tpu_total_core_count(topology=None):
+  if topology is None:
+    topology = cached_topology()
+  return topology.num_tasks * topology.num_tpus_per_task
+get_tpu_total_core_count()
+def get_device_assignment(num_replicas=None, computation_shape=None, computation_stride=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  if num_replicas is None:
+    num_replicas = get_tpu_total_core_count(topology=topology)
+  if computation_shape is None:
+    computation_shape = [1, 1, 1, 1]
+  if computation_stride is None:
+    computation_stride = [1, 1, 1, 1]
+  device_assignment = tf.tpu.experimental.DeviceAssignment.build(topology, computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=num_replicas)
+  return device_assignment
+get_device_assignment()
+def print_device_assignment(device_assignment):
+  [print('--- replica %d ---' % i) or [
+    print({
+      'coordinate': device_assignment.coordinates(i,j),
+      'host': device_assignment.host_device(i,j),
+      'core': device_assignment.tpu_device(i,j),
+      'ordinal': device_assignment.tpu_ordinal(i,j)}) for j in range(device_assignment.num_cores_per_replica)] for i in range(device_assignment.num_replicas)]
+print_device_assignment( get_device_assignment() )
+print_device_assignment( get_device_assignment(), computation_stride=[1,1,1,2] )
+print_device_assignment( get_device_assignment(computation_stride=[1,1,1,2]) )
+print_device_assignment( get_device_assignment(computation_shape=[1,1,1,2]) )
+np.prod
+def get_device_assignment(num_replicas_per_core=None, num_replicas=None, computation_shape=None, computation_stride=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  if computation_shape is None:
+    computation_shape = [1, 1, 1, 1]
+  if computation_stride is None:
+    computation_stride = [1, 1, 1, 1]
+  if num_replicas_per_core is None:
+    num_replicas_per_core = np.prod(computation_shape)
+  if num_replicas is None:
+    num_replicas = get_tpu_total_core_count(topology=topology) // num_replicas_per_core
+  device_assignment = tf.tpu.experimental.DeviceAssignment.build(topology, computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=num_replicas)
+  return device_assignment
+get_device_assignment(2)
+print_device_assignment( get_device_assignment(2) )
+print_device_assignment( get_device_assignment(2, computation_stride=[0,0,0,0]) )
+print_device_assignment( get_device_assignment(2, computation_stride=[1,1,1,2]) )
+print_device_assignment( get_device_assignment(2, computation_stride=[1,1,1,1]) )
+print_device_assignment( get_device_assignment(2, computation_stride=[1,1,1,2]) )
+print_device_assignment( get_device_assignment(2, computation_stride=[1,1,1,1]) )
+print_device_assignment( get_device_assignment(2, num_replicas=32, computation_stride=[1,1,1,1]) )
+def get_tpu_total_core_count(topology=None):
+  if topology is None:
+    topology = cached_topology()
+  return topology.num_tasks * topology.num_tpus_per_task
+def get_device_assignment(num_replicas_per_core=None, num_replicas=None, computation_shape=None, computation_stride=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  if computation_shape is None:
+    computation_shape = [1, 1, 1, 1]
+  if computation_stride is None:
+    computation_stride = [1, 1, 1, 1]
+  if num_replicas_per_core is None:
+    num_replicas_per_core = np.prod(computation_shape)
+  if num_replicas is None:
+    num_replicas = get_tpu_total_core_count(topology=topology) // num_replicas_per_core
+  device_assignment = tf.tpu.experimental.DeviceAssignment.build(topology, computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=num_replicas)
+  return device_assignment
+def print_device_assignment(device_assignment):
+  [print('--- replica %d ---' % i) or [
+    print({
+      'coordinate': device_assignment.coordinates(i,j),
+      'host': device_assignment.host_device(i,j),
+      'core': device_assignment.tpu_device(i,j),
+      'ordinal': device_assignment.tpu_ordinal(i,j)}) for j in range(device_assignment.num_cores_per_replica)] for i in range(device_assignment.num_replicas)]
+print_device_assignment( get_device_assignment(2, num_replicas=32, computation_stride=[1,1,1,1]) )
+print_device_assignment( get_device_assignment(2, num_replicas=32) )
+print_device_assignment( get_device_assignment(2, num_replicas=64) )
+print_device_assignment( get_device_assignment(2, num_replicas=32) )
+print_device_assignment( get_device_assignment(2, num_replicas=32, computation_shape=[2,1,1,2]) )
+print_device_assignment( get_device_assignment(2, num_replicas=16, computation_shape=[2,1,1,2]) )
+print_device_assignment( get_device_assignment(2, num_replicas=8, computation_shape=[2,1,1,2]) )
+print_device_assignment( get_device_assignment(num_replicas=8, computation_shape=[2,1,1,2]) )
+print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,1,1,2]) )
+print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[4,4,1,2]) )
+def print_device_assignment(device_assignment):
+  [print('--- replica %d ---' % i) or [
+    print({
+      'coordinate': device_assignment.coordinates(i,j),
+      'host': device_assignment.host_device(i,j),
+      'core': device_assignment.tpu_device(i,j),
+      'ordinal': device_assignment.tpu_ordinal(i,j)}) for j in range(device_assignment.num_cores_per_replica)] for i in range(device_assignment.num_replicas)]
+  return device_assignment
+print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[4,4,1,2]) )
+that = _
+dir( that )
+that
+print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[4,4,1,2]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[4,4,1,2]) )
+that
+dir(that )
+that.num_cores_per_replica
+that.host_device
+that.host_device()
+that.host_device(0)
+that.host_device(1)
+that.host_device(0)
+help( that.host_device )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[4,1,1,2]) )
+that.host_device(0, 1)
+[that.host_device(replica=replica, logical_core=logical_core) for replica in that.num_replicas for logical_core in that.num_cores_per_replica]
+[that.host_device(replica=replica, logical_core=logical_core) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)]
+pp([that.host_device(replica=replica, logical_core=logical_core) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp(dir(that))
+help(that.lookup_replicas)
+help(that.coordinates()
+)
+help(that.coordinates)
+(replica=replica, logical_core=logical_core) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp([that.coordinates(replica=replica, logical_core=logical_core) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp(dir(that))
+pp([that.host_device(replica=replica, logical_core=logical_core) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp([that.host_device(replica=replica, logical_core=logical_core)+':'+str(that.tpu_ordinal(replica=replica, logical_core=logical_core))) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp([that.host_device(replica=replica, logical_core=logical_core)+':'+str(that.tpu_ordinal(replica=replica, logical_core=logical_core)))) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp([that.host_device(replica=replica, logical_core=logical_core)+':'+str(that.tpu_ordinal(replica=replica, logical_core=logical_core)) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp([that.host_device(replica=replica, logical_core=logical_core)+'@'+str(that.tpu_ordinal(replica=replica, logical_core=logical_core)) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp([that.host_device(replica=replica, logical_core=logical_core).replace('/device:CPU:', '/device/:TPU:')+str(that.tpu_ordinal(replica=replica, logical_core=logical_core)) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp([that.host_device(replica=replica, logical_core=logical_core).replace('/device:CPU:0', '/device/:TPU:')+str(that.tpu_ordinal(replica=replica, logical_core=logical_core)) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp([that.host_device(replica=replica, logical_core=logical_core).replace('/device:CPU:0', '/device:TPU:')+str(that.tpu_ordinal(replica=replica, logical_core=logical_core)) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp(dir(that))
+pp([that.tpu_device(replica=replica, logical_core=logical_core).replace('/device:CPU:0', '/device:TPU:')+str(that.tpu_ordinal(replica=replica, logical_core=logical_core)) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp([that.tpu_device(replica=replica, logical_core=logical_core)+'@'+str(that.tpu_ordinal(replica=replica, logical_core=logical_core)) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp([that.host_device(replica=replica, logical_core=logical_core)+'@'+str(that.tpu_ordinal(replica=replica, logical_core=logical_core)) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp([that.tpu_device(replica=replica, logical_core=logical_core)+'@'+str(that.tpu_ordinal(replica=replica, logical_core=logical_core)) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp([that.tpu_device(replica=replica, logical_core=logical_core) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+from tensorflow.python.distribute import device_util
+pp([device_util.canonicalize( that.tpu_device(replica=replica, logical_core=logical_core) ) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp(dir(device_util))
+pp([device_util.get_host_for_device( that.tpu_device(replica=replica, logical_core=logical_core) ) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp([device_util.canonicalize( that.tpu_device(replica=replica, logical_core=logical_core) ) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+pp([device_util.get_host_for_device( device_util.canonicalize( that.tpu_device(replica=replica, logical_core=logical_core) ) ) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)])
+devs=[device_util.canonicalize( that.tpu_device(replica=replica, logical_core=logical_core) ) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)]; zip(devs, [device_util.get_host_for_device(x) for x in devs])
+devs=[device_util.canonicalize( that.tpu_device(replica=replica, logical_core=logical_core) ) for replica in range(that.num_replicas) for logical_core in range(that.num_cores_per_replica)]; pp(list(zip(devs, [device_util.get_host_for_device(x) for x in devs])))
+device_util.canonicalize('/device:TPU:2')
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[4,1,1,2]) )
+from tensorflow.python.distribute import distribution_strategy_context as ds_context
+ds_context.get_replica_context()
+ds_context.get_replica_context().replica_id_in_sync_group
+c = ds_context.get_replica_context()
+pp(dir( c))
+c.devices
+c.num_replicas_in_sync
+from tensorflow.python import tpu as tpu_lib
+pp(dir(tpu_lib))
+pp(dir(tpu_lib.tpu))
+tpu_lib.tpu.core(0)
+tpu_lib.tpu.rewrite
+help( tpu_lib.tpu.rewrite )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[4,1,1,2]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[4,4,1,2]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[3,4,1,2]) )
+that.num_cores_per_replica
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[3,2,1,2]) )
+that.num_cores_per_replica
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[3,3,1,2]) )
+that.num_cores_per_replica
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2]) )
+that.num_cores_per_replica
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2], computation_stride=[1,2,1,1]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2], computation_stride=[1,1,1,1]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2], computation_stride=[1,1,1,2]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2], computation_stride=[1,1,1,0]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2], computation_stride=[2,1,1,1]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2], computation_stride=[1,1,1,1]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2], computation_stride=[2,1,1,1]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2], computation_stride=[1,1,1,1]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2], computation_stride=[2,1,1,1]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2], computation_stride=[1,1,1,1]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2], computation_stride=[2,1,1,1]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2], computation_stride=[1,1,1,1]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2], computation_stride=[2,1,1,1]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2], computation_stride=[1,1,1,1]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,2,1,2], computation_stride=[2,1,1,1]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2], computation_stride=[1,1,1,1]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,3,1,2], computation_stride=[2,1,1,1]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[3,2,1,2], computation_stride=[2,1,1,1]) )
+that = print_device_assignment( get_device_assignment(num_replicas=None, computation_shape=[2,4,1,2], computation_stride=[2,1,1,1]) )
+that.num_cores_per_replica
+device_util.canonicalize('/device:TPU:2')
+help(device_util)
+from tensorflow.python.framework import device as pydev
+pydev.DeviceSpec.from_string( device_util.canonicalize('/device:TPU:2') )
+dir( pydev.DeviceSpec.from_string( device_util.canonicalize('/device:TPU:2') ) )
+pp( dir( pydev.DeviceSpec.from_string( device_util.canonicalize('/device:TPU:2') ) ) )
+pydev.DeviceSpec.from_string( device_util.canonicalize('/device:TPU:2') )
+pydev.DeviceSpec.from_string( device_util.canonicalize('/device:TPU:2') ).job
+pydev.DeviceSpec.from_string( device_util.canonicalize('/device:TPU:2') ).replica
+pydev.DeviceSpec.from_string( device_util.canonicalize('/device:TPU:2') ).task
+pydev.DeviceSpec.from_string( device_util.canonicalize('/task:3/device:TPU:2') ).task
+pydev.DeviceSpec.from_string( device_util.canonicalize('/task:3/device:TPU:2') ).device_index
+session_config
+session_config.device_count
+fg
+tf.enable_resource_variables()
+v = tf.Variable(-420)
+v.eval()
+r(v.initializer)
+v.eval()
+tf.enable_resource_variables()
+v = tf.Variable(-420)
+v.eval()
+tf.enable_resource_variables()
+# v = tf.Variable(-420)
+sess.list_devices()
+pp(sess.list_devices())
+pp([x.name for x in sess.list_devices()])
+with tf.device( '/job:worker/replica:0/task:1/device:TPU:0' ): v = tf.Variable(-420)
+v.eval()
+v.load(-421)
+tf.enable_resource_variables()
+with tf.device( '/job:worker/replica:0/task:1/device:TPU:0' ): v = tf.Variable(-421); r(v.assign(-421))
+tf.enable_resource_variables()
+v = tf.Variable(-420)
+v.eval()
+tf.enable_resource_variables()
+with tf.device( '/job:worker/replica:0/task:0/device:TPU:0' ): v = tf.Variable(-421); v.eval()
+with tf.device( '/job:worker/replica:0/task:0/device:CPU:0' ): v = tf.Variable(-421); v.eval()
+tf.enable_resource_variables()
+with tf.device( '/job:worker/replica:0/task:0/device:CPU:0' ): v = tf.Variable(-421); v.eval()
+tf.enable_resource_variables()
+tf.UninitializedVariable
+tf.BaseResourceVariable
+topology.mesh_shape.copy()
+tpu_topology.mesh_shape.copy()
+def get_computation_shape(num_replicas_per_core=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  core_count = get_tpu_total_core_count(topology=topology)
+  mesh_shape = topology.mesh_shape.copy()
+  mesh_traverse = [3, 1, 0]
+  computation_shape = [1, 1, 1, 1]
+  if num_replicas_per_core == None:
+    return computation_shape
+  while num_replicas_per_core > 1 and len(mesh_traverse) > 0:
+    computation_shape[mesh_traverse[0]] += 1
+    num_replicas_per_core //= 2
+    if computation_shape[mesh_traverse[0]] >= mesh_shape[mesh_traverse[0]]:
+      mesh_traverse = mesh_traverse[1:]
+  return computation_shape
+get_computation_shape()
+def get_tpu_total_core_count(topology=None):
+  if topology is None:
+    topology = cached_topology()
+  return topology.num_tasks * topology.num_tpus_per_task
+get_computation_shape()
+get_computation_shape(2)
+get_computation_shape(3)
+get_computation_shape(4)
+def get_computation_shape(num_replicas_per_core=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  core_count = get_tpu_total_core_count(topology=topology)
+  mesh_shape = topology.mesh_shape.copy()
+  mesh_traverse = [3, 1, 0]
+  computation_shape = [1, 1, 1, 1]
+  if num_replicas_per_core == None:
+    return num_replicas_per_core == 1
+  if num_replicas_per_core == 1:
+    return computation_shape
+  while num_replicas_per_core > 0 and len(mesh_traverse) > 0:
+    computation_shape[mesh_traverse[0]] += 1
+    num_replicas_per_core //= 2
+    if computation_shape[mesh_traverse[0]] >= mesh_shape[mesh_traverse[0]]:
+      mesh_traverse = mesh_traverse[1:]
+  return computation_shape
+get_computation_shape(3)
+get_computation_shape(2)
+get_computation_shape(1)
+get_computation_shape(2)
+def get_computation_shape(num_replicas_per_core=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  core_count = get_tpu_total_core_count(topology=topology)
+  mesh_shape = topology.mesh_shape.copy()
+  mesh_traverse = [3, 1, 0]
+  computation_shape = [1, 1, 1, 1]
+  if num_replicas_per_core == None:
+    return num_replicas_per_core == 1
+  if num_replicas_per_core == 1:
+    return computation_shape
+  while num_replicas_per_core > 1 and len(mesh_traverse) > 0:
+    computation_shape[mesh_traverse[0]] += 1
+    num_replicas_per_core //= 2
+    if computation_shape[mesh_traverse[0]] >= mesh_shape[mesh_traverse[0]]:
+      mesh_traverse = mesh_traverse[1:]
+  return computation_shape
+get_computation_shape(2)
+get_computation_shape(1)
+get_computation_shape(2)
+get_computation_shape(3)
+get_computation_shape(4)
+print_device_assignment( get_device_assignment(computation_shape= [2,2,1,1] ) )
+def print_device_assignment(device_assignment):
+  [print('--- replica %d ---' % i) or [
+    print({
+      'coordinate': device_assignment.coordinates(i,j),
+      'host': device_assignment.host_device(i,j),
+      'core': device_assignment.tpu_device(i,j),
+      'ordinal': device_assignment.tpu_ordinal(i,j)}) for j in range(device_assignment.num_cores_per_replica)] for i in range(device_assignment.num_replicas)]
+  return device_assignment
+def get_device_assignment(num_replicas=None, computation_shape=None, computation_stride=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  core_count = get_tpu_total_core_count(topology=topology)
+  if num_replicas is None:
+    num_replicas = core_count
+  if computation_shape is None:
+    computation_shape = [1, 1, 1, 1]
+  if computation_stride is None:
+    computation_stride = [1, 1, 1, 1]
+  device_assignment = tf.tpu.experimental.DeviceAssignment.build(topology, computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=num_replicas)
+  return device_assignment
+print_device_assignment( get_device_assignment(computation_shape= [2,2,1,1] ) )
+print_device_assignment( get_device_assignment(computation_shape= [2,2,1,1], num_replicas=8 ) )
+print_device_assignment( get_device_assignment(computation_shape= [2,2,1,1], num_replicas=3 ) )
+print_device_assignment( get_device_assignment(computation_shape= [2,2,1,1], num_replicas=4 ) )
+print_device_assignment( get_device_assignment(computation_shape= [1,4,1,2], num_replicas=4 ) )
+print_device_assignment( get_device_assignment(computation_shape= [1,3,1,2], num_replicas=4 ) )
+print_device_assignment( get_device_assignment(computation_shape= [1,3,1,1], num_replicas=4 ) )
+print_device_assignment( get_device_assignment(computation_shape= [3,3,1,1], num_replicas=4 ) )
+print_device_assignment( get_device_assignment(computation_shape= [3,3,1,1], num_replicas=2 ) )
+def get_device_assignment(num_replicas=None, computation_shape=None, computation_stride=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  core_count = get_tpu_total_core_count(topology=topology)
+  if computation_shape is None:
+    computation_shape = [1, 1, 1, 1]
+  if computation_stride is None:
+    computation_stride = [1, 1, 1, 1]
+  device_assignment = tf.tpu.experimental.DeviceAssignment.build(topology, computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=num_replicas)
+  return device_assignment
+def get_device_assignment(num_replicas=None, computation_shape=None, computation_stride=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  core_count = get_tpu_total_core_count(topology=topology)
+  if computation_shape is None:
+    computation_shape = [1, 1, 1, 1]
+  if computation_stride is None:
+    computation_stride = [1, 1, 1, 1]
+  device_assignment = tf.tpu.experimental.DeviceAssignment.build(topology, computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=num_replicas)
+  return device_assignment
+print_device_assignment( get_device_assignment(computation_shape= [3,3,1,1] ) )
+print_device_assignment( get_device_assignment(computation_shape= [3,3,1,1], num_replicas=None ) )
+print_device_assignment( get_device_assignment(computation_shape= [3,3,1,1], num_replicas=0 ) )
+print_device_assignment( get_device_assignment(computation_shape= [3,3,1,1], num_replicas=1 ) )
+print_device_assignment( get_device_assignment(computation_shape= [3,3,1,1], num_replicas=-1 ) )
+print_device_assignment( get_device_assignment(computation_shape= [3,3,1,1], num_replicas=2 ) )
+print_device_assignment( get_device_assignment(computation_shape= [3,3,1,1], num_replicas=3 ) )
+print_device_assignment( get_device_assignment(computation_shape= [3,1,1,2], num_replicas=3 ) )
+print_device_assignment( get_device_assignment(computation_shape= [3,1,1,2], num_replicas=4 ) )
+print_device_assignment( get_device_assignment(computation_shape= [3,1,1,2], num_replicas=5 ) )
+32 // 5
+32 // 6
+def get_device_assignment(computation_shape=None, computation_stride=None, *, num_replicas=None, topology=None):
+  if topology is None:
+    topology = cached_topology()
+  if num_replicas is None:
+    dev = None
+    core_count = get_tpu_total_core_count(topology=topology)
+    for i in range(core_count):
+      try:
+        dev = get_device_assignment(computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=i+1, topology=topology)
+        num_replicas = i+1
+      except ValueError:
+        if dev is None:
+          raise
+        return dev
+  if computation_shape is None:
+    computation_shape = [1, 1, 1, 1]
+  if computation_stride is None:
+    computation_stride = [1, 1, 1, 1]
+  device_assignment = tf.tpu.experimental.DeviceAssignment.build(topology, computation_shape=computation_shape, computation_stride=computation_stride, num_replicas=num_replicas)
+  return device_assignment
+print_device_assignment( get_device_assignment(computation_shape= [3,1,1,2] ) )
+print_device_assignment( get_device_assignment( computation_shape= [3,1,1,2] ) )
+print_device_assignment( get_device_assignment( computation_shape= [1,1,1,2] ) )
+print_device_assignment( get_device_assignment( computation_shape= [1,3,1,1] ) )
+print_device_assignment( get_device_assignment( computation_shape= [1,3,1,1] ) ).num_replicas
+print_device_assignment( get_device_assignment( computation_shape= [1,3,1,1] ) ).num_cores_per_replica
+print_device_assignment( get_device_assignment( computation_shape= [2,3,1,1] ) ).num_cores_per_replica
+print_device_assignment( get_device_assignment( computation_shape= [2,3,1,2] ) ).num_cores_per_replica
+print_device_assignment( get_device_assignment( computation_shape= [2,2,1,2] ) ).num_cores_per_replica
+print_device_assignment( get_device_assignment( [2,1,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [2,1,1,2], [1,1,1,1] ) )
+print_device_assignment( get_device_assignment( [2,1,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [1,1,1,1] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [1,1,1,1] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [1,1,1,1] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [2,2,1,1] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [2,2,1,2] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [2,1,1,2] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [2,2,1,1] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [1,1,1,1] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [2,2,1,1] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [1,1,1,1] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [2,2,1,1] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [1,1,1,1] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [1,1,1,2] ) )
+print_device_assignment( get_device_assignment( [2,2,1,1], [1,1,1,2] ) )
+print_device_assignment( get_device_assignment( [2,2,1,1], [1,1,1,1] ) )
+print_device_assignment( get_device_assignment( [2,2,1,1], [1,1,1,2] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], [1,1,1,1] ) )
+print_device_assignment( get_device_assignment( [2,1,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [1,1,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [1,1,1,2], [1,1,1,1] ) )
+print_device_assignment( get_device_assignment( [1,1,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [1,1,1,2], [1,1,1,1] ) )
+print_device_assignment( get_device_assignment( [1,4,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [1,2,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [1,4,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [1,2,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [1,1,1,2], [1,1,1,1] ) )
+print_device_assignment( get_device_assignment( [1,2,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [1,4,1,2], [1,1,1,1] ) )
+print_device_assignment( get_device_assignment( [1,2,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [1,2,1,2], [1,1,1,1] ) )
+print_device_assignment( get_device_assignment( [1,2,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [1,2,1,2], [1,1,1,1] ) )
+print_device_assignment( get_device_assignment( [1,2,1,2], [1,2,1,1] ) )
+print_device_assignment( get_device_assignment( [1,2,1,2] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2] ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], num_replicas=2 ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], num_replicas=8 ) )
+print_device_assignment( get_device_assignment( [2,2,1,2], num_replicas=4 ) )
+print_device_assignment( get_device_assignment( [1,3,1,1] ) )
+print_device_assignment( get_device_assignment( [3,1,1,1] ) )
+print_device_assignment( get_device_assignment( [3,3,1,1] ) )
+print_device_assignment( get_device_assignment( [3,4,1,1] ) )
+print_device_assignment( get_device_assignment( [3,4,1,1] ) ).num_replicas_per_core
+print_device_assignment( get_device_assignment( [3,4,1,1] ) ).num_cores_per_replica
+print_device_assignment( get_device_assignment( [4,4,1,1] ) ).num_cores_per_replica
+print_device_assignment( get_device_assignment( [4,4,1,2] ) ).num_cores_per_replica
+def print_device_assignment(device_assignment):
+  print('=== num_replicas=%d num_cores_per_replica=%d ===' % (device_assignment.num_replicas, device_assignment.num_cores_per_replica))
+  [print('--- replica %d ---' % i) or [
+    print({
+      'coordinate': device_assignment.coordinates(i,j),
+      'host': device_assignment.host_device(i,j),
+      'core': device_assignment.tpu_device(i,j),
+      'ordinal': device_assignment.tpu_ordinal(i,j)}) for j in range(device_assignment.num_cores_per_replica)] for i in range(device_assignment.num_replicas)]
+  return device_assignment
+print_device_assignment( get_device_assignment( [4,4,1,2] ) ).num_cores_per_replica
+print_device_assignment( get_device_assignment( [4,4,1,2] ) )
+print_device_assignment( get_device_assignment( [4,4,1,1] ) )
+def print_device_assignment(device_assignment):
+  [print('--- replica %d ---' % i) or [
+    print({
+      'coordinate': device_assignment.coordinates(i,j),
+      'host': device_assignment.host_device(i,j),
+      'core': device_assignment.tpu_device(i,j),
+      'ordinal': device_assignment.tpu_ordinal(i,j)}) for j in range(device_assignment.num_cores_per_replica)] for i in range(device_assignment.num_replicas)]
+  print('=== num_replicas=%d num_cores_per_replica=%d ===' % (device_assignment.num_replicas, device_assignment.num_cores_per_replica))
+  return device_assignment
+print_device_assignment( get_device_assignment( [4,4,1,1] ) )
+print_device_assignment( get_device_assignment( [4,3,1,2] ) )
+print_device_assignment( get_device_assignment( [3,3,1,2] ) )
+print_device_assignment( get_device_assignment( [4,3,1,2] ) )
+print_device_assignment( get_device_assignment( [1,1,1,2] ) )
+print_device_assignment( get_device_assignment( [1,3,1,2] ) )
+print_device_assignment( get_device_assignment( [3,1,1,2] ) )
+print_device_assignment( get_device_assignment( [1,3,1,2] ) )
+print_device_assignment( get_device_assignment( [3,1,1,2] ) )
+print_device_assignment( get_device_assignment( [1,3,1,2] ) )
+print_device_assignment( get_device_assignment( [3,1,1,2] ) )
+print_device_assignment( get_device_assignment( [1,3,1,2] ) )
+print_device_assignment( get_device_assignment( [3,1,1,2] ) )
+print_device_assignment( get_device_assignment( [1,3,1,2] ) )
+print_device_assignment( get_device_assignment( [3,1,1,2] ) )
+print_device_assignment( get_device_assignment( [1,3,1,2] ) )
+print_device_assignment( get_device_assignment( [3,1,1,1] ) )
+print_device_assignment( get_device_assignment( [1,3,1,2] ) )
+print_device_assignment( get_device_assignment( [1,4,1,2] ) )
+print_device_assignment( get_device_assignment( [1,3,1,2] ) )
+print_device_assignment( get_device_assignment( [1,4,1,2] ) )
+print_device_assignment( get_device_assignment( [1,3,1,2] ) )
+print_device_assignment( get_device_assignment( [1,3,1,2] ) ).core_assignment
+len(print_device_assignment( get_device_assignment( [1,3,1,2] ) ).core_assignment)
+from gaping import tf_tools as tft; reload(tft)
+r( tf.tpu.initialize_system() )
+get_topology()
+get_core_assignment([[0,1]])
+get_core_assignment().num_replicas
+get_device_assignment().num_replicas
+get_device_assignment().core_assignment
+get_core_assignment([[0,1,31]])
+get_core_assignment([[0,1,31]]).core_assignment
+r( tft.tpu_shard(lambda: tf.add(1,2), get_core_assignment([[0,1,31]])) )
+r( tft.tpu_shard(lambda: tf.add(1,2), get_core_assignment([[0],[1],[31]]])) )
+r( tft.tpu_shard(lambda: tf.add(1,2), get_core_assignment([[0],[1],[31]])) )
+r( tft.tpu_shard(lambda: tft.tpu_id(), get_core_assignment([[0],[1],[31]])) )
+from gaping import tf_tools as tft; reload(tft)
+r( tft.tpu_shard(lambda: tft.tpu_id(), get_core_assignment([[0],[1],[31]])) )
+r( tft.tpu_shard(lambda: tft.with_device('core:1', lambda: tft.tpu_id()), get_core_assignment([[0],[1],[31]])) )
+r( tft.tpu_shard(lambda: tft.with_device('core:1', lambda: tft.tpu_id()), get_core_assignment([[0,1],[1,2],[30,31]])) )
+r( tft.tpu_shard(lambda: tft.with_device('core:1', lambda: tft.tpu_id()), get_core_assignment([[0,1],[8,9],[30,31]])) )
+#     z_size: An integer represents the mesh size in the z-dimension. Must be
+sess = reset_session(); r = sess.run; graph = sess.graph
+r( tft.tpu_shard(lambda: tft.with_device('core:1', lambda: tft.tpu_id()), get_core_assignment([[0,1],[8,9],[30,31]])) )
+r( tft.tpu_shard(lambda: tft.with_device('core:1', lambda: api.refv('core1')), get_core_assignment([[0,1],[8,9],[30,31]])) )
+from gaping import tf_tools as tft; reload(tft); from gaping import tf_api as api; reload(api)
+r( tft.tpu_shard(lambda: tft.with_device('core:1', lambda: api.refv('core1')), get_core_assignment([[0,1],[8,9],[30,31]])) )
+r( tft.tpu_shard(lambda: tft.with_device('core:1', lambda: api.refv('core1', dtype=tf.int32)), get_core_assignment([[0,1],[8,9],[30,31]])) )
+r( tft.tpu_shard(lambda: tft.with_device('core:1', lambda: api.refv('core1', dtype=tf.int32).assign(1)), get_core_assignment([[0,1],[8,9],[30,31]])) )
+sess = reset_session(); r = sess.run; graph = sess.graph
+r( tft.tpu_shard(lambda: tft.with_device('core:1', lambda: api.refv('core1', dtype=tf.int32).assign(1)), get_core_assignment([[0,1],[8,9],[30,31]])) )
+sess = reset_session(); r = sess.run; graph = sess.graph
+vcore1 = api.refv('core1', dtype=tf.int32)
+vcore1.assign
+vcore1.assign(0)
+r( vcore1.assign(0) )
+r( tft.tpu_shard(lambda: tft.with_device('core:1', lambda: api.refv('core1', dtype=tf.int32).assign(1)), get_core_assignment([[0,1],[8,9],[30,31]])) )
+r( tft.tpu_ops.replicate(lambda: tft.with_device('core:1', lambda: api.refv('core1', dtype=tf.int32).assign(1)), get_core_assignment([[0,1],[8,9],[30,31]])) )
+r( tft.tpu_lib.replicate(lambda: tft.with_device('core:1', lambda: api.refv('core1', dtype=tf.int32).assign(1)), get_core_assignment([[0,1],[8,9],[30,31]])) )
+r( tft.tpu_lib.replicate(lambda: tft.with_device('core:1', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_core_assignment([[0,1],[8,9],[30,31]])) )
+r( tft.tpu_lib.replicate(lambda: tft.with_device('core:1', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_core_assignment([[0,1],[8,9],[30,31]])), num_replicas=3 )
+r( tft.tpu_lib.replicate(lambda: tft.with_device('core:1', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_core_assignment([[0,1],[8,9],[30,31]]), num_replicas=3 ))
+help(tft.tpu_lib.replicate)
+r( tft.tpu_lib.replicate(lambda: tft.with_device('core:1', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_core_assignment([[0,1],[8,9],[30,31]])) )
+r( tft.tpu_lib.replicate(lambda: tft.with_device('core:1', lambda: api.refv('core1', dtype=tf.int32).assign(1)) )
+)
+sess = reset_session(); r = sess.run; graph = sess.graph
+r( tft.tpu_lib.replicate(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)) )
+)
+r( tft.tpu_lib.replicate(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)) ))
+r( tft.tpu_lib.replicate(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_device_assignment() ))
+r( tft.tpu_lib.replicate(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_device_assignment().core_assignment ))
+r( tft.tpu_lib.replicate(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_device_assignment() ))
+r( tft.tpu_lib.replicate(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=[get_device_assignment()] ))
+r( tft.tpu_lib.replicate(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_device_assignment() ))
+sess = reset_session(); r = sess.run; graph = sess.graph
+r( tft.tpu_shard(lambda: tf.add(1,2) ) )
+r( tft.tpu_shard(lambda: tf.add(1,2), device_assignment=get_device_assignment() ) )
+r( tft.tpu_shard(lambda: tf.add(1,2), device_assignment=get_core_assignment([[1]]) ) )
+r( tft.tpu_lib.split_compile_and_replicate(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_device_assignment() )[-1] )
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_device_assignment() )[-1] )
+sess = reset_session(); r = sess.run; graph = sess.graph
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_device_assignment() )[-1] )
+from gaping import tf_tools as tft; reload(tft); from gaping import tf_api as api; reload(api)
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_device_assignment(), num_replicas=32 )[-1] )
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_device_assignment(), num_shards=32 )[-1] )
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_device_assignment(), num_shards=8 )[-1] )
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_device_assignment(), num_shards=1 )[-1] )
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_device_assignment(), num_shards=96 )[-1] )
+get_device_assignment()
+96//get_device_assignment()
+96/32
+get_device_assignment()
+get_core_assignment([[1]])
+get_core_assignment([[1]]).core_assignment
+get_core_assignment([[1,2]]).core_assignment
+get_core_assignment([[1,2],[3,4]]).core_assignment
+help(tft.tpu_lib.replicate)
+help(tft.tpu_lib.shard)
+get_core_assignment([[1,2],[3,4]]).core_assignmenet
+get_core_assignment([[1,2],[3,4]]).core_assignment
+len( get_core_assignment([[1,2],[3,4]]).core_assignment )
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_core_assignment([[1,2], [3,4]]), num_shards=2 )[-1] )
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_core_assignment([[1,2], [3,4]]), num_shards=2, outputs_from_all_shards=True )[-1] )
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_core_assignment([[1,2], [3,4]]), num_shards=2, outputs_from_all_shards=32 )[-1] )
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_core_assignment([[1,2], [3,4]]), num_shards=32, outputs_from_all_shards=True )[-1] )
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_core_assignment([[1,2], [3,4]]), num_shards=16, outputs_from_all_shards=True )[-1] )
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_core_assignment([[1,2], [3,4]]), num_shards=18, outputs_from_all_shards=True )[-1] )
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_core_assignment([[1,2], [3,4]]), num_shards=8, outputs_from_all_shards=True )[-1] )
+8*2*3
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_core_assignment([[1,2], [3,4]]), num_shards=48, outputs_from_all_shards=True )[-1] )
+8*2*3
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_core_assignment([[1,2], [3,4]]), num_shards=4, outputs_from_all_shards=True )[-1] )
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_core_assignment([[1,2], [3,4]]), num_shards=1, outputs_from_all_shards=True )[-1] )
+r( tft.tpu_lib.split_compile_and_shard(lambda: tft.with_device('core:0', lambda: api.refv('core1', dtype=tf.int32).assign(1)), device_assignment=get_core_assignment([[1,2], [3,4]]), num_shards=2, outputs_from_all_shards=True )[-1] )
+r( tft.tpu_shard(lambda: tf.add(1,2), device_assignment=get_core_assignment([[1]]) ) )
+sess = reset_session(); r = sess.run; graph = sess.graph
+r( tft.tpu_shard(lambda: tf.add(1,2), device_assignment=get_core_assignment([[1]]) ) )
+r( tf.tpu.initialize_system() )
+r( tft.tpu_shard(lambda: tf.add(1,2), device_assignment=get_core_assignment([[1]]) ) )
+r( vcore1.assign(0) )
+vcore1 = api.refv('core1', dtype=tf.int32)
+r( vcore1.assign(0) )
+with tft.device('tpu:1'): vcore1_1 = api.refv('core1', dtype=tf.int32)
+r( vctore1_1 )
+r( vcore1_1 )
+with tft.device('tpu:1'): vcore1_1 = api.refv('core1', dtype=tf.int32); r(vcore1_1.assign(42))
+r( vcore1_1 )
+with tft.device('tpu:1'): vcore1_1 = api.refv('core1', dtype=tf.int32);
+r( vcore1_1 )
+[tft.with_device('tpu:%d task:%d' % (i%8, i//8), lambda: api.refv('tpu_id', dtype=tf.int32).assign(i)) for i in range(32)]
+r( [tft.with_device('tpu:%d task:%d' % (i%8, i//8), lambda: api.refv('tpu_id', dtype=tf.int32).assign(i)) for i in range(32)] )
+r( tft.tpu_shard(lambda: api.refv('tpu_id', dtype=tf.int32)) )
+r( [tft.with_device('tpu:%d task:%d' % (i%8, i//8), lambda: api.refv('tpu_id', dtype=tf.int32)) for i in range(32)] )
+r( [tft.device_name('tpu:%d task:%d' % (i%8, i//8)), lambda: api.refv('tpu_id', dtype=tf.int32) for i in range(32)] )
+r( [(tft.device_name('tpu:%d task:%d' % (i%8, i//8)), lambda: api.refv('tpu_id', dtype=tf.int32)) for i in range(32)] )
+[(tft.device_name('tpu:%d task:%d' % (i%8, i//8)), lambda: api.refv('tpu_id', dtype=tf.int32)) for i in range(32)] 
+pp( [(tft.device_name('tpu:%d task:%d' % (i%8, i//8)), lambda: api.refv('tpu_id', dtype=tf.int32)) for i in range(32)]  )
+pp( sess.list_devices() )
+[(tft.device_name('job:worker replica:0 tpu:%d task:%d' % (i%8, i//8)), lambda: api.refv('tpu_id', dtype=tf.int32)) for i in range(32)] 
+r( [(tft.device_name('job:worker replica:0 tpu:%d task:%d' % (i%8, i//8)), lambda: api.refv('tpu_id', dtype=tf.int32)) for i in range(32)]  )
+pp( [(tft.device_name('job:worker replica:0 tpu:%d task:%d' % (i%8, i//8)), lambda: api.refv('tpu_id', dtype=tf.int32)) for i in range(32)] )
+r( [tft.with_device('job:worker replica:0 tpu:%d task:%d' % (i%8, i//8)), lambda: api.refv('tpu_id', dtype=tf.int32)) for i in range(32)]  )
+r( [tft.with_device('job:worker replica:0 tpu:%d task:%d' % (i%8, i//8), lambda: api.refv('tpu_id', dtype=tf.int32)) for i in range(32)]  )
+r( [tft.with_device('job:tpu_worker replica:0 tpu:%d task:%d' % (i%8, i//8), lambda: api.refv('tpu_id', dtype=tf.int32)) for i in range(32)]  )
+r( tft.tpu_shard(lambda: api.refv('tpu_id', dtype=tf.int32)) )
+r( [tft.with_device('job:tpu_worker replica:0 tpu:%d task:%d' % (i%8, i//8), lambda: api.refv('tpu_id_test', dtype=tf.int32)) for i in range(32)]  )
+r( tft.tpu_shard(lambda: api.refv('tpu_id', dtype=tf.int32)) )
+tpu_cores = [x.name for x in sess.list_devices() if ':TPU:' in x.name]
+pp( tpu_cores )
+r( [tft.with_device(tpu_cores[i], lambda: api.refv('tpu_id_test', dtype=tf.int32)) for i in range(32)]  )
+r( tft.tpu_shard(lambda: api.refv('tpu_id_test', dtype=tf.int32)) )
+r( [tft.with_device(tpu_cores[i], lambda: api.refv('tpu_id_test', dtype=tf.int32)) for i in range(32)]  )
+r( tft.tpu_shard(lambda: api.refv('tpu_id_test', dtype=tf.int32)) )
+r( tft.tpu_shard(lambda: api.refv('tpu_id', dtype=tf.int32)) )
+r( tft.tpu_shard(lambda: api.refv('tpu_id_test', dtype=tf.int32)) )
+r( [tft.with_device(tpu_cores[i], lambda: api.refv('tpu_id_test', dtype=tf.int32)).assign(i) for i in range(32)]  )
+r( tft.tpu_shard(lambda: api.refv('tpu_id_test', dtype=tf.int32)) )
+r( tft.tpu_shard(lambda: api.refv('tpu_id', dtype=tf.int32)) )
+r( tft.tpu_shard(lambda: api.refv('xla_id', dtype=tf.int32)) )
+r( [tft.with_device(tpu_cores[i], lambda: api.refv('xla_id', dtype=tf.int32)) for i in range(32)][0]  )
+r( tft.tpu_shard(lambda: tft.set('xla_id_v', api.refv('xla_id', dtype=tf.int32))) )
+xla_id_v
+xla_id_v.handle
+xla_id_v.unique_id
+xla_id_v._unique_id
+r( tft.tpu_shard(lambda: tft.set('xla_id_v2', tf.Variable(0, name='xla_id', dtype=tf.int32))) )
+xla_id_v2._unique_id
+xla_id_v._unique_id
+xla_id_v2.shared_name
+xla_id_v2._shared_name
+xla_id_v2._unique_id
+xla_id_v2._handle_name
+xla_id_v2.name
+xla_id_v2.device
+r( tft.tpu_shard(lambda: tft.set('xla_id_v2_device', tft.current_device_name()) )) )
+r( tft.tpu_shard(lambda: tft.set('xla_id_v2_device', tft.current_device_name())) )) )
+r( tft.tpu_shard(lambda: tft.set('xla_id_v2_device', tft.current_device_name()) ) )
+xla_id_v2_device
+r( tft.tpu_shard(lambda: tft.set('xla_id_v2_device', tft.current_device_name()) ) )
+sess = reset_session(); r = sess.run; graph = sess.graph
+r( tft.tpu_shard(lambda: tft.set('xla_id_v2_device', tft.current_device_name()) ) )
+xla_id_v2_device
+r( tft.tpu_shard(lambda: tft.with_device('core:0', lambda: tft.set('xla_id_core0', tf.Variable(0, name='xla_id', dtype=tf.int32)))) )
+r( tf.tpu.initialize_system() )
+r( tft.tpu_shard(lambda: tft.with_device('core:0', lambda: tft.set('xla_id_core0', tf.Variable(0, name='xla_id', dtype=tf.int32)))) )
+xla_id_core0
+xla_id_core0.device
+tf_ext.ref_existing( xla_id_core0 )
+from gaping import tf_ext; reload(tf_ext)
+tf_ext.ref_existing( xla_id_core0 )
+tf_ext.ref_existing( xla_id_core0 ).assign(-1).run()
+r( tf_ext.ref_existing( xla_id_core0 ).assign(-1) )
+sess = reset_session(); r = sess.run; graph = sess.graph
+r( tf_ext.ref_existing( xla_id_core0 ).assign(-1) )
+r( xla_id_core0 )
+r( tft.tpu_shard(lambda: tft.with_device('core:0', lambda: tft.set('xla_id_core0', tf.Variable(0, name='xla_id', dtype=tf.int32)))) )
+r( tft.tpu_shard(lambda: tft.with_device('core:0', lambda: tft.set('xla_id_core0_eval', xla_id_core0 ))) )
+r( tft.tpu_shard(lambda: tft.with_device('core:0', lambda: tft.set('xla_id_core0_eval', xla_id_core0 )), device_assignment=get_core_assignment([0]) ) )
+with tf.device(tpu_cores[0]): r( tf_ext.ref_existing( xla_id_core0 ).assign(-1) )
+sess = reset_session(); r = sess.run; graph = sess.graph
+with tf.device(tpu_cores[0]): r( tf_ext.ref_existing( xla_id_core0 ).assign(-1) )
+r( tft.tpu_shard(lambda: tft.with_device('core:0', lambda: tft.set('xla_id_core0_eval',  tf_ext.ref_existing( xla_id_core0 ) )), device_assignment=get_core_assignment([0]) ) )
+r( tf.add(1,2) )
+sess = reset_session(); r = sess.run; graph = sess.graph
+r( tft.tpu_shard(lambda: tft.with_device('job:worker core:0', lambda: tft.set('xla_id_core0_eval',  tf_ext.ref_existing( xla_id_core0 ) )), device_assignment=get_core_assignment([0]) ) )
+r( tft.tpu_shard(lambda: tft.with_device('core:0 job:worker', lambda: tft.set('xla_id_core0_eval',  tf_ext.ref_existing( xla_id_core0 ) )), device_assignment=get_core_assignment([0]) ) )
+r( tf.tpu.initialize_system() )
+r( tft.tpu_shard(lambda: tft.with_device('core:0 job:worker', lambda: tft.set('xla_id_core0_eval',  tf_ext.ref_existing( xla_id_core0 ) )), device_assignment=get_core_assignment([0]) ) )
+r( tft.tpu_shard(lambda: tft.with_device('core:0 job:tpu_worker', lambda: tft.set('xla_id_core0_eval',  tf_ext.ref_existing( xla_id_core0 ) )), device_assignment=get_core_assignment([0]) ) )
+sess = reset_session(); r = sess.run; graph = sess.graph
+r( tft.tpu_shard(lambda: tft.with_device('core:0 job:tpu_worker', lambda: tft.set('xla_id_core0_eval',  tf_ext.ref_existing( xla_id_core0 ) )), device_assignment=get_core_assignment([0]) ) )
+r( tft.tpu_shard(lambda: tft.with_device('core:0 job:tpu_worker task:0', lambda: tft.set('xla_id_core0_eval',  tf_ext.ref_existing( xla_id_core0 ) )), device_assignment=get_core_assignment([0]) ) )
+res
+cluster_spec
+cluster_spec.as_cluster_dev()
+cluster_spec.as_cluster_def()
+v = tf.ResourceVariable(0)
+v = tf.Variable(0)
+r(tft.tpu_shard(lambda: tpu_ops.tpu_ops.tpu_replicated_input([v.handle], name=v.name.split(':')[0] + '/handle')))
+v = tf.Variable(0, name='foo')
+r(tft.tpu_shard(lambda: tpu_ops.tpu_ops.tpu_replicated_input([v.handle], name=v.name.split(':')[0] + '/handle')))
+v = tf.Variable(0, name='foo', shared_name='foo')
+v = tf.Variable(0, name='foo')
+r(tft.tpu_shard(lambda: tpu_ops.tpu_ops.tpu_replicated_input([v.handle], name=v.name.split(':')[0] + '/handle')))
+v = tf.Variable(0, name='foo')
+ids = list(range(8, 16))
+r( tf.add(1,2) )
+#     z_size: An integer represents the mesh size in the z-dimension. Must be
+sess = reset_session(); r = sess.run; graph = sess.graph
+ids = list(range(0, 32))
+r(tft.tpu_shard(lambda: tf.tpu.outside_compilation(lambda id: id+1, ids)))
+ids_handle = tpu_ops.tpu_ops.tpu_replicated_input(ids)
+r(tft.tpu_shard(lambda: tf.tpu.outside_compilation(lambda id: id+1, ids_handle)))
+r( tf.tpu.initialize_system() )
+r(tft.tpu_shard(lambda: tf.tpu.outside_compilation(lambda id: id+1, ids_handle)))
+ids_handle = tpu_ops.tpu_ops.tpu_replicated_input(ids)
+r(tft.tpu_shard(lambda: tf.tpu.outside_compilation(lambda id: id+1, ids_handle)))
+# r(tft.tpu_shard(lambda: tf.tpu.outside_compilation(lambda id: id+1, ids_handle)))
+sess = reset_session(); r = sess.run; graph = sess.graph ; r( tf.tpu.initialize_system() )
+ids_handle = tpu_ops.tpu_ops.tpu_replicated_input(ids)
+ids_handle
+r(tft.tpu_shard(lambda: tf.tpu.outside_compilation(lambda id: id+1, ids_handle)))
+r(tft.tpu_shard(lambda: ids_handle))
+r(tft.tpu_shard(lambda: tf.tpu.outside_compilation(lambda id: id+1, ids_handle)))
+sess = reset_session(); r = sess.run; graph = sess.graph ; r( tf.tpu.initialize_system() )
+v = tf.Variable(0, name='foo')
+ctx = tft.enclosing_tpu_context()
+(tft.tpu_shard(lambda: tf.tpu.outside_compilation(lambda id: id+1, pp(dir(tft.set('ctx', tft.enclosing_tpu_context()))) or ids_handle) )))
+(tft.tpu_shard(lambda: tf.tpu.outside_compilation(lambda id: id+1, pp(dir(tft.set('ctx', tft.enclosing_tpu_context()))) or ids_handle) ))
+help( ctx.get_replicated_var_handle )
+vs = [tf.Variable(i, name='v') for i in ids]
+(tft.tpu_shard(lambda: tf.tpu.outside_compilation(lambda id: id, tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('woo', vs)) ) ))
+(tft.tpu_shard(lambda: tft.set('woo_r', tf.tpu.outside_compilation(lambda id: id, tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('woo', vs)) ) )))
+woo_r
+r( [v.initializer for v in vs] )
+r( (tft.tpu_shard(lambda: tft.set('woo_r', tf.tpu.outside_compilation(lambda id: id, tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('woo', vs)) ) ))) )
+# r( (tft.tpu_shard(lambda: tft.set('woo_r', tf.tpu.outside_compilation(lambda id: id, tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('woo', vs)) ) ))) )
+help( tf_ext.gen_resource_variable_ops.read_variable_op )
+r( tf.add(1,2) )
+r( (tft.tpu_shard(lambda: partial(tf_ext.gen_resource_variable_ops.read_variable_op, dtype=tf.int32)( tft.set('woo_r', tf.tpu.outside_compilation(lambda id: id, tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('woo', vs)) ) ))) )
+)
+from functools import partial
+r( (tft.tpu_shard(lambda: partial(tf_ext.gen_resource_variable_ops.read_variable_op, dtype=tf.int32)( tft.set('woo_r', tf.tpu.outside_compilation(lambda id: id, tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('woo', vs)) ) ))) ))
+r( tf.add(1,2) )
+sess = reset_session(); r = sess.run; graph = sess.graph ; r( tf.tpu.initialize_system() )
+vs = [tft.with_device(tpu_cores[i], lambda: tf.Variable(i, name='v')) for i in ids]
+# vs = [tft.with_device(tpu_cores[i], lambda: tf.Variable(i, name='v')) for i in ids]
+r( (tft.tpu_shard(lambda: partial(tf_ext.gen_resource_variable_ops.read_variable_op, dtype=tf.int32)( tft.set('woo_r', tf.tpu.outside_compilation(lambda id: id, tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('woo', vs)) ) ))) ))
+# sess = reset_session(); r = sess.run; graph = sess.graph ; r( tf.tpu.initialize_system() )
+get_topology()
+tpu_cores = [x.name for x in sess.list_devices() if ':TPU:' in x.name]
+# vs = [tft.with_device(tpu_cores[i], lambda: tf.Variable(i, name='v')) for i in ids]
+ids = list(range(0, 32))
+vs = [tft.with_device(tpu_cores[i], lambda: tf.Variable(i, name='v')) for i in ids]
+from gaping import tf_tools as tft; reload(tft); from gaping import tf_api as api; reload(api); from gaping import tf_ext; reload(tf_ext)
+vs = [tft.with_device(tpu_cores[i], lambda: tf.Variable(i, name='v')) for i in ids]
+r( [v.initializer for v in vs] )
+from functools import partial
+r( (tft.tpu_shard(lambda: partial(tf_ext.gen_resource_variable_ops.read_variable_op, dtype=tf.int32)( tft.set('woo_r', tf.tpu.outside_compilation(lambda id: id, tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('woo', vs)) ) ))) ))
+tpu_cores = list(sorted( [x.name for x in sess.list_devices() if ':TPU:' in x.name] ) )
+r( tf.add(1,2) )
+# sess = reset_session(); r = sess.run; graph = sess.graph ; r( tf.tpu.initialize_system() )
+sess = reset_session(); r = sess.run; graph = sess.graph ; r( tf.tpu.initialize_system() )
+vs = [tft.with_device(tpu_cores[i], lambda: tf.Variable(i, name='v')) for i in ids]
+r( [v.initializer for v in vs] )
+r( (tft.tpu_shard(lambda: partial(tf_ext.gen_resource_variable_ops.read_variable_op, dtype=tf.int32)( tft.set('woo_r', tf.tpu.outside_compilation(lambda id: id, tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('woo', vs)) ) ))) ))
+r( (tft.tpu_shard(lambda: partial(tf_ext.gen_resource_variable_ops.read_variable_op, dtype=tf.int32)( tft.set('woo_r', ( tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('woo', vs)) ) ))) ))
+woo
+r( (tft.tpu_shard(lambda: partial(tf_ext.gen_resource_variable_ops.read_variable_op, dtype=tf.int32)( tft.set('woo_r', ( tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('woot', vs)) ) ))) ))
+woo
+vs
+r( (tft.tpu_shard(lambda: partial(tf_ext.gen_resource_variable_ops.read_variable_op, dtype=tf.int32)( tft.set('woo_r', ( tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('idz', ids)) ) ))) ))
+r( (tft.tpu_shard(lambda: partial(tf_ext.gen_resource_variable_ops.read_variable_op, dtype=tf.int32)( tft.set('woo_r', ( tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('idz', [tf.Variable(ids)])) ) ))) ))
+r( (tft.tpu_shard(lambda: partial(tf_ext.gen_resource_variable_ops.read_variable_op, dtype=tf.int32)( tft.set('woo_r', ( tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('idz', [tf.Variable(ids) for _ in range(32)])) ) ))) ))
+sess = reset_session(); r = sess.run; graph = sess.graph ; r( tf.tpu.initialize_system() )
+r( (tft.tpu_shard(lambda: partial(tf_ext.gen_resource_variable_ops.read_variable_op, dtype=tf.int32)( tft.set('woo_r', ( tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('idz', [tf.Variable(ids) for _ in range(32)])) ) ))) ))
+sess = reset_session(); r = sess.run; graph = sess.graph ; r( tf.tpu.initialize_system() )
+# r( (tft.tpu_shard(lambda: partial(tf_ext.gen_resource_variable_ops.assign_variable_op, dtype=tf.int32)( tft.set('woo_r', ( tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('idz', [tf.Variable(ids) for _ in range(32)])) ) ))) ))
+help( tf_ext.gen_resource_variable_ops.assign_variable_op )
+r( (tft.tpu_shard(lambda: partial(tf_ext.gen_resource_variable_ops.assign_variable_op, value=ids)( tft.set('woo_r', ( tft.set('woo', tft.enclosing_tpu_context().get_replicated_var_handle('idz', [tf.Variable(ids) for _ in range(32)])) ) ))) ))
+sess = reset_session(); r = sess.run; graph = sess.graph ; r( tf.tpu.initialize_system() )
