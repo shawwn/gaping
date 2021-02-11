@@ -2875,6 +2875,80 @@ class _ConvNd(Module):
       return s.format(**self.__dict__)
 
 
+# x_in = np.array([[
+#  [[2], [1], [2], [0], [1]],
+#  [[1], [3], [2], [2], [3]],
+#  [[1], [1], [3], [3], [0]],
+#  [[2], [2], [0], [1], [1]],
+#  [[0], [0], [3], [1], [2]], ]], dtype=np.float32)
+# kernel_in = np.array([
+#  [ [[2, 0.1]], [[3, 0.2]] ],
+#  [ [[0, 0.3]],[[1, 0.4]] ], ])
+# x = tf.constant(x_in, dtype=tf.float32)
+# kernel = tf.constant(kernel_in, dtype=tf.float32)
+# y1 = r( tf.nn.conv2d(x, kernel, strides=[1, 1, 1, 1], padding='VALID') )
+# y2 = nn.permute( nn.to_value( F.conv2d(torch.tensor(x_in.astype(np.float32)).permute(0,3,1,2), torch.tensor(kernel_in.astype(np.float32)).permute(3,2,0,1)) ), 0,2,3,1)
+# np.allclose(y1, y2) == True
+
+def conv2d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, data_format="NHWC"):
+  r"""conv2d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1) -> Tensor
+
+Applies a 2D convolution over an input image composed of several input
+planes.
+
+See :class:`~torch.nn.Conv2d` for details and output shape.
+
+Args:
+    input: input tensor of shape :math:`(\text{minibatch} , \text{in\_channels} , iH , iW)`
+    weight: filters of shape :math:`(\text{out\_channels} , \frac{\text{in\_channels}}{\text{groups}} , kH , kW)`
+    bias: optional bias tensor of shape :math:`(\text{out\_channels})`. Default: ``None``
+    stride: the stride of the convolving kernel. Can be a single number or a
+      tuple `(sH, sW)`. Default: 1
+    padding: implicit paddings on both sides of the input. Can be a
+      single number or a tuple `(padH, padW)`. Default: 0
+    dilation: the spacing between kernel elements. Can be a single number or
+      a tuple `(dH, dW)`. Default: 1
+    groups: split input into groups, :math:`\text{in\_channels}` should be divisible by the
+      number of groups. Default: 1
+
+Examples::
+
+    >>> # With square kernels and equal stride
+    >>> filters = torch.randn(8,4,3,3)
+    >>> inputs = torch.randn(1,4,5,5)
+    >>> F.conv2d(inputs, filters, padding=1)
+  """
+  if data_format not in ["NCHW", "NHWC"]:
+    raise ValueError("Expected data_format to be NCHW or NHWC, got {!r}".format(data_format))
+  assert groups == 1, "groups != 1 not yet implemented"
+  if padding == "VALID":
+    padding = (0,0)
+  elif padding == "SAME":
+    padding = (1,1)
+  else:
+    padding = _pair(padding)
+  stride = _pair(stride)
+  if data_format == "NCHW":
+    stride = [1, 1, *stride]
+  else:
+    stride = [1, *stride, 1]
+  padding = _pair(padding)
+  if padding[0] != 0 or padding[1] != 0:
+    padding = list(padding * 2)
+    if data_format == "NCHW":
+      padding = [0,0] + [0,0] + padding
+    else:
+      padding = [0,0] + padding + [0,0]
+    input = pad(input, padding)
+  padding = "VALID"
+  dilation = _pair(dilation)
+  output = tf.nn.conv2d(input, weight, strides=stride, padding=padding, data_format=data_format, dilations=dilation)
+  if bias is not None:
+    #output = tf.add(output, self.bias)
+    output = tf.nn.bias_add(output, bias, data_format=data_format)
+  return output
+
+
 class Conv2d(_ConvNd):
     r"""Applies a 2D convolution over an input signal composed of several input
     planes.
@@ -3043,30 +3117,8 @@ class Conv2d(_ConvNd):
             # return F.conv2d(F.pad(input, self._reversed_padding_repeated_twice, mode=self.padding_mode),
             #                 weight, self.bias, self.stride,
             #                 _pair(0), self.dilation, self.groups)
-        # return F.conv2d(input, weight, self.bias, self.stride,
-        #                 self.padding, self.dilation, self.groups)
-        #assert self.padding == [0, 0]
-        #padding = 'VALID'
-        strides = [1, *self.stride, 1]
-        #strides = self.stride
-        data_format = self.data_format
-        padding = self.padding
-        if isinstance(padding, (list, tuple)):
-          #padding = [[0, 0], padding, padding, [0, 0]]
-          p = padding
-          padding = [[0, 0], [p[0], p[0]], [p[1], p[1]], [0, 0]]
-        #padding = [[0, 0], self.padding, self.padding, [0, 0]]
-        #padding = 'VALID'
-        #padding = 'SAME'
-        print(self.padding)
-        # data_format = 'NCHW'
-        # padding = [[0, 0], [0, 0], self.padding, self.padding]
-        dilations = self.dilation
-        output = tf.nn.conv2d(input, weight, strides=strides, padding=padding, data_format=data_format, dilations=dilations)
-        if self.bias is not None:
-          #output = tf.add(output, self.bias)
-          output = tf.nn.bias_add(output, self.bias, data_format=self.data_format)
-        return output
+        return conv2d(input, weight, self.bias, self.stride,
+                      self.padding, self.dilation, self.groups, data_format=self.data_format)
 
     def forward(self, input):
         with self.scope():
