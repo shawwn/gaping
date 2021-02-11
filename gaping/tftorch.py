@@ -1461,7 +1461,7 @@ class Sequential(Module):
 
     @_copy_to_script_wrapper
     def __getitem__(self: T, idx) -> T:
-        if isinstance(idx, slice):
+        if isinstance(idx, py.slice):
             return self.__class__(OrderedDict(list(self._modules.items())[idx]))
         else:
             return self._get_item_by_idx(self._modules.values(), idx)
@@ -1470,8 +1470,8 @@ class Sequential(Module):
         key = self._get_item_by_idx(self._modules.keys(), idx)
         return setattr(self, key, module)
 
-    def __delitem__(self, idx: Union[slice, int]) -> None:
-        if isinstance(idx, slice):
+    def __delitem__(self, idx: Union[py.slice, int]) -> None:
+        if isinstance(idx, py.slice):
             for key in list(self._modules.keys())[idx]:
                 delattr(self, key)
         else:
@@ -1543,7 +1543,7 @@ class ModuleList(Module):
 
     @_copy_to_script_wrapper
     def __getitem__(self, idx: int) -> Module:
-        if isinstance(idx, slice):
+        if isinstance(idx, py.slice):
             return self.__class__(list(self._modules.values())[idx])
         else:
             return self._modules[self._get_abs_string_index(idx)]
@@ -1552,8 +1552,8 @@ class ModuleList(Module):
         idx = self._get_abs_string_index(idx)
         return setattr(self, str(idx), module)
 
-    def __delitem__(self, idx: Union[int, slice]) -> None:
-        if isinstance(idx, slice):
+    def __delitem__(self, idx: Union[int, py.slice]) -> None:
+        if isinstance(idx, py.slice):
             for k in range(len(self._modules))[idx]:
                 delattr(self, str(k))
         else:
@@ -1800,11 +1800,11 @@ class ParameterList(Module):
         ...
 
     @overload
-    def __getitem__(self: T, idx: slice) -> T:
+    def __getitem__(self: T, idx: py.slice) -> T:
         ...
 
     def __getitem__(self, idx):
-        if isinstance(idx, slice):
+        if isinstance(idx, py.slice):
             return self.__class__(list(self._parameters.values())[idx])
         else:
             idx = self._get_abs_string_index(idx)
