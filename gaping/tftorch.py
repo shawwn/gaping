@@ -3111,20 +3111,25 @@ _image_modes = {
     'area': tf.image.ResizeMethod.AREA,
 }
 
-def interpolate(input, size=None, scale_factor=None, mode='nearest', align_corners=None, name="interpolate"):
+def interpolate(input, size=None, scale_factor=None, mode='nearest', align_corners=None, data_format="NHWC", name="interpolate"):
+  if data_format not in ["NHWC", "NCHW"]:
+    raise ValueError("Expected data_format to be NHWC or NCHW, got {!r}".format(data_format))
+  if data_format == "NCHW":
+    input = permute(input, 0,2,3,1)
   if mode == 'nearest' and scale_factor is not None and size is None:
     # fast path?
     if scale_factor % 2 != 0:
       raise ValueError("scale_factor must be a multiple of 2, got {}".format(scale_factor))
-    out = input
+    output = input
     while scale_factor // 2 >= 1:
-      out = unpool2(out, name=name)
+      output = unpool2(output, name=name)
       scale_factor //= 2
-    return out
   else:
     method = _image_modes[mode]
     output = tf.image.resize(input, size=size, method=method, name=name)
-    return output
+  if data_format == "NCHW":
+    output = permute(output, 0,3,1,2)
+  return output
 
 
 def pool(input, kernel_size, stride=None, pooling_type="AVG", padding="SAME", name=None):
@@ -4864,11 +4869,13 @@ class Upsample(Module):
     align_corners: Optional[bool]
 
     def __init__(self, size: Optional[_size_any_t] = None, scale_factor: Optional[_ratio_any_t] = None,
-                 mode: str = 'nearest', align_corners: Optional[bool] = None, scope='upsample', **kws) -> None:
+                 mode: str = 'nearest', align_corners: Optional[bool] = None, data_format: str = "NHWC",
+                 scope='upsample', **kws) -> None:
         super(Upsample, self).__init__(scope=scope, **kws)
         with self.scope():
             self.name = type(self).__name__
             self.size = size
+            self.data_format = data_format
             if isinstance(scale_factor, tuple):
                 self.scale_factor = tuple(float(factor) for factor in scale_factor)
             else:
@@ -4878,14 +4885,15 @@ class Upsample(Module):
 
     def forward(self, input: Tensor) -> Tensor:
         with self.scope():
-            return interpolate(input, self.size, self.scale_factor, self.mode, self.align_corners)
+            return interpolate(input, self.size, self.scale_factor, self.mode, self.align_corners, data_format=self.data_format)
 
     def extra_repr(self) -> str:
         if self.scale_factor is not None:
             info = 'scale_factor=' + str(self.scale_factor)
         else:
             info = 'size=' + str(self.size)
-        info += ', mode=' + self.mode
+        info += ', mode=' + self.mode 
+        info += ', data_format=' + self.data_format 
         return info
 
 
