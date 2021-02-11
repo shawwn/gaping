@@ -4,7 +4,7 @@ import six
 
 from six import with_metaclass
 
-from functools import partial
+from functools import partial, reduce
 
 from collections import OrderedDict, namedtuple
 from typing import Union, Tuple, Any, Callable, Iterable, Iterator, Set, Optional, overload, TypeVar, Mapping, Dict
@@ -2874,7 +2874,7 @@ class _ConvNd(Module):
           s += ', bias=False'
       if self.padding_mode != 'zeros':
           s += ', padding_mode={padding_mode}'
-      if self.data_format != 'NHWC':
+      if self.data_format != 'NCHW':
           s += ', data_format={data_format}'
       return s.format(**self.__dict__)
 
@@ -2894,7 +2894,13 @@ class _ConvNd(Module):
 # y2 = nn.permute( nn.to_value( F.conv2d(torch.tensor(x_in.astype(np.float32)).permute(0,3,1,2), torch.tensor(kernel_in.astype(np.float32)).permute(3,2,0,1)) ), 0,2,3,1)
 # np.allclose(y1, y2) == True
 
-def conv2d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, data_format="NHWC"):
+def nchw_to_nhwc(x):
+  if isinstance(x, (list, tuple)) and all([isinstance(y, int) for y in x]):
+    return list(np.array(x)[[0,2,3,1]])
+  else:
+    return permute(x, 0,2,3,1)
+
+def conv2d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1, data_format="NCHW"):
   r"""conv2d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1) -> Tensor
 
 Applies a 2D convolution over an input image composed of several input
@@ -2940,13 +2946,19 @@ Examples::
   if padding[0] != 0 or padding[1] != 0:
     padding = list(padding * 2)
     if data_format == "NCHW":
-      padding = [0,0] + [0,0] + padding
+      padding = padding + [0,0] + [0,0]
     else:
       padding = [0,0] + padding + [0,0]
     input = pad(input, padding)
   padding = "VALID"
   dilation = _pair(dilation)
-  output = tf.nn.conv2d(input, permute(weight, 2,3,1,0), strides=stride, padding=padding, data_format=data_format, dilations=dilation)
+  weight_in = permute(weight, 2,3,1,0)
+  if data_format == "NCHW":
+    input = nchw_to_nhwc(input)
+    stride_in = nchw_to_nhwc(stride)
+  output = tf.nn.conv2d(input, weight_in, strides=stride_in, padding=padding, data_format="NHWC", dilations=dilation)
+  if data_format == "NCHW":
+    output = permute(output, 0,3,1,2)
   if bias is not None:
     #output = tf.add(output, self.bias)
     output = tf.nn.bias_add(output, bias, data_format=data_format)
@@ -3097,7 +3109,7 @@ class Conv2d(_ConvNd):
         groups = 1,
         bias = True,
         padding_mode = 'zeros',  # TODO: refine this type
-        data_format = 'NHWC',
+        data_format = 'NCHW',
         scope='conv_2d',
         **kwargs,
     ):
@@ -3167,7 +3179,7 @@ _image_modes = {
     'area': tf.image.ResizeMethod.AREA,
 }
 
-def interpolate(input, size=None, scale_factor=None, mode='nearest', align_corners=None, data_format="NHWC", name="interpolate"):
+def interpolate(input, size=None, scale_factor=None, mode='nearest', align_corners=None, data_format="NCHW", name="interpolate"):
   if data_format not in ["NHWC", "NCHW"]:
     raise ValueError("Expected data_format to be NHWC or NCHW, got {!r}".format(data_format))
   if data_format == "NCHW":
@@ -3199,7 +3211,7 @@ upsample = interpolate
 downsample = partial(pool, kernel_size=2)
 
 
-def max_pool2d(input, kernel_size, stride, padding="VALID", dilation=1, ceil_mode=False, return_indices=False, *, data_format="NHWC", name=None):
+def max_pool2d(input, kernel_size, stride, padding="VALID", dilation=1, ceil_mode=False, return_indices=False, *, data_format="NCHW", name=None):
   if dilation != 1:
     import pdb; pdb.set_trace()
     raise NotImplementedError()
@@ -3260,7 +3272,7 @@ class _MaxPoolNd(Module):
 
     def __init__(self, kernel_size: _size_any_t, stride: Optional[_size_any_t] = None,
                  padding: _size_any_t = 0, dilation: _size_any_t = 1,
-                 return_indices: bool = False, ceil_mode: bool = False, data_format: str = "NHWC", scope=None, **kwargs) -> None:
+                 return_indices: bool = False, ceil_mode: bool = False, data_format: str = "NCHW", scope=None, **kwargs) -> None:
         if scope is None:
             scope = self.__class__.scope_name
         super(_MaxPoolNd, self).__init__(scope=scope, **kwargs)
@@ -3492,7 +3504,7 @@ class _AvgPoolNd(Module):
         )
 
 
-def avg_pool2d(input, kernel_size, stride=None, padding=0, data_format="NHWC", name=None):
+def avg_pool2d(input, kernel_size, stride=None, padding=0, data_format="NCHW", name=None):
   kernel_size = _pair(kernel_size)
   strides = _pair(kernel_size if stride is None else stride)
   #padding = padding or "SAME"
@@ -3525,7 +3537,7 @@ class AvgPool2d(_AvgPoolNd):
       return avg_pool2d(input, self.kernel_size, self.stride, self.padding)
 
 
-def adaptive_pool2d(input, output_size, reduce_function, data_format="NHWC", return_indices=False, name=None):
+def adaptive_pool2d(input, output_size, reduce_function, data_format="NCHW", return_indices=False, name=None):
   TORCH_CHECK(return_indices is False,
       "return_indices not yet implemented")
   TORCH_CHECK(data_format in ["NCHW", "NHWC"],
@@ -3555,7 +3567,7 @@ class _AdaptiveMaxPoolNd(Module):
     __constants__ = ['output_size', 'return_indices']
     return_indices: bool
 
-    def __init__(self, output_size: _size_any_t, data_format: str = "NHWC", return_indices: bool = False, scope=None, **kws) -> None:
+    def __init__(self, output_size: _size_any_t, data_format: str = "NCHW", return_indices: bool = False, scope=None, **kws) -> None:
         if scope is None:
             scope = 'adaptive_max_pool{}d'.format(dim(output_size))
         super(_AdaptiveMaxPoolNd, self).__init__(scope=scope, **kws)
@@ -3617,7 +3629,7 @@ class _AdaptiveAvgPoolNd(Module):
     __constants__ = ['output_size', 'return_indices']
     return_indices: bool
 
-    def __init__(self, output_size: _size_any_t, data_format: str = "NHWC", return_indices: bool = False, scope=None, **kws) -> None:
+    def __init__(self, output_size: _size_any_t, data_format: str = "NCHW", return_indices: bool = False, scope=None, **kws) -> None:
         if scope is None:
             scope = 'adaptive_avg_pool{}d'.format(dim(output_size))
         super(_AdaptiveAvgPoolNd, self).__init__(scope=scope, **kws)
@@ -4056,7 +4068,14 @@ class _BatchNorm(_NormBase):
 
 def batch_norm(input, mean, variance, weight, bias, training, exponential_average_factor, variance_epsilon):
   # TODO: exponential_average_factor
-  out = tf.nn.batch_normalization(input, mean, variance, offset=bias, scale=weight, variance_epsilon=variance_epsilon)
+  #out = tf.nn.batch_normalization(input, mean, variance, offset=bias, scale=weight, variance_epsilon=variance_epsilon)
+  shape = [1] * dim(input)
+  # verify the shape is NCHW.
+  rest = size(input)[2:]
+  if rest:
+    assert reduce(operator.eq, rest)
+  shape[1] = -1
+  out = tf.nn.batch_normalization(input, view(mean, *shape), view(variance, *shape), offset=view(bias, *shape), scale=view(weight, *shape), variance_epsilon=variance_epsilon)
   # inv_var = tf.math.rsqrt(variance + variance_epsilon)
   # weight_v = 1.0 if weight is None else weight
   # bias_v = 0.0 if bias is None else bias
@@ -4946,7 +4965,7 @@ class Upsample(Module):
     align_corners: Optional[bool]
 
     def __init__(self, size: Optional[_size_any_t] = None, scale_factor: Optional[_ratio_any_t] = None,
-                 mode: str = 'nearest', align_corners: Optional[bool] = None, data_format: str = "NHWC",
+                 mode: str = 'nearest', align_corners: Optional[bool] = None, data_format: str = "NCHW",
                  scope='upsample', **kws) -> None:
         super(Upsample, self).__init__(scope=scope, **kws)
         with self.scope():
