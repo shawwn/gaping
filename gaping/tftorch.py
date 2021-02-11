@@ -4945,3 +4945,46 @@ class Sigmoid(Module):
             return sigmoid(input)
 
 
+# >>> F.pad(torch.tensor([[1,2,3],[4,5,6]]), [2,0,0,0])
+# tensor([[0, 0, 1, 2, 3],
+#         [0, 0, 4, 5, 6]])
+# >>> F.pad(torch.tensor([[1,2,3],[4,5,6]]), [0,2,0,0])
+# tensor([[1, 2, 3, 0, 0],
+#         [4, 5, 6, 0, 0]])
+# >>> F.pad(torch.tensor([[1,2,3],[4,5,6]]), [0,0,2,0])
+# tensor([[0, 0, 0],
+#         [0, 0, 0],
+#         [1, 2, 3],
+#         [4, 5, 6]])
+# >>> F.pad(torch.tensor([[1,2,3],[4,5,6]]), [0,0,0,2])
+# tensor([[1, 2, 3],
+#         [4, 5, 6],
+#         [0, 0, 0],
+#         [0, 0, 0]])
+# >>> r( tf.pad(tf.constant([[1,2,3],[4,5,6]]), [[2,0],[0,0]]) )
+# array([[0, 0, 0],
+#        [0, 0, 0],
+#        [1, 2, 3],
+#        [4, 5, 6]], dtype=int32)
+# >>> r( tf.pad(tf.constant([[1,2,3],[4,5,6]]), [[0,2],[0,0]]) )
+# array([[1, 2, 3],
+#        [4, 5, 6],
+#        [0, 0, 0],
+#        [0, 0, 0]], dtype=int32)
+# >>> r( tf.pad(tf.constant([[1,2,3],[4,5,6]]), [[0,0],[2,0]]) )
+# array([[0, 0, 1, 2, 3],
+#        [0, 0, 4, 5, 6]], dtype=int32)
+# >>> r( tf.pad(tf.constant([[1,2,3],[4,5,6]]), [[0,0],[0,2]]) )
+# array([[1, 2, 3, 0, 0],
+#        [4, 5, 6, 0, 0]], dtype=int32)
+
+def pad(input, pad, mode='constant', value=0):
+  if mode != 'constant':
+    raise NotImplementedError()
+  assert len(pad) % 2 == 0, 'Padding length must be divisible by 2'
+  assert len(pad) // 2 <= dim(input), 'Padding length too large'
+  if len(pad) != 4:
+    raise NotImplementedError()
+  L, R, T, B = pad
+  return tf.pad(input, [[T,B],[L,R]], mode='CONSTANT', constant_values=value)
+  
