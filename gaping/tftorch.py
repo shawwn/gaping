@@ -3215,7 +3215,17 @@ def max_pool2d(input, kernel_size, stride, padding="VALID", dilation=1, ceil_mod
   else:
     padding = _pair(padding)
   print('max_pool2d', padding)
-  return tf.nn.max_pool2d(input, kernel_size, strides, padding, data_format, name=name)
+  if data_format == "NCHW":
+    input = permute(input, 0,2,3,1)
+  # tensorflow padding=="SAME" isn't the same thing as pytorch
+  # padding==1. In pytorch, the input is padded with zeros.
+  if padding == "SAME":
+    padding = "VALID"
+    input = pad(input, [0,0,1,1,1,1,0,0])
+  input = tf.nn.max_pool2d(input, kernel_size, strides, padding, data_format="NHWC", name=name)
+  if data_format == "NCHW":
+    input = permute(input, 0,3,1,2)
+  return input
   #return tf.nn.pool(input, kernel_size, "MAX", "SAME", strides=strides, name=name)
 
 
@@ -3246,7 +3256,7 @@ class _MaxPoolNd(Module):
 
     def __init__(self, kernel_size: _size_any_t, stride: Optional[_size_any_t] = None,
                  padding: _size_any_t = 0, dilation: _size_any_t = 1,
-                 return_indices: bool = False, ceil_mode: bool = False, scope=None, **kwargs) -> None:
+                 return_indices: bool = False, ceil_mode: bool = False, data_format: str = "NHWC", scope=None, **kwargs) -> None:
         if scope is None:
             scope = self.__class__.scope_name
         super(_MaxPoolNd, self).__init__(scope=scope, **kwargs)
@@ -3257,6 +3267,7 @@ class _MaxPoolNd(Module):
             self.dilation = dilation
             self.return_indices = return_indices
             self.ceil_mode = ceil_mode
+            self.data_format = data_format
 
     def extra_repr(self) -> str:
         return 'kernel_size={kernel_size}, stride={stride}, padding={padding}' \
@@ -3317,7 +3328,7 @@ class MaxPool1d(_MaxPoolNd):
         with self.scope():
             return max_pool1d(input, self.kernel_size, self.stride,
                               self.padding, self.dilation, self.ceil_mode,
-                              self.return_indices)
+                              self.return_indices, data_format=self.data_format)
 
 
 class MaxPool2d(_MaxPoolNd):
@@ -3389,7 +3400,7 @@ class MaxPool2d(_MaxPoolNd):
         with self.scope():
             return max_pool2d(input, self.kernel_size, self.stride,
                               self.padding, self.dilation, self.ceil_mode,
-                              self.return_indices)
+                              self.return_indices, data_format=self.data_format)
 
 
 class MaxPool3d(_MaxPoolNd):
