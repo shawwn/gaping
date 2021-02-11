@@ -3868,6 +3868,16 @@ def element_count(x):
     x = x.as_list()
   return py.int(np.prod(x))
 
+def to_value(value):
+    if isinstance(value, tf.Variable):
+        return value.value()
+    if hasattr(value, 'detach'):
+        value = value.detach()
+    if hasattr(value, 'numpy'):
+        value = value.numpy()
+    return value
+
+
 from tensorflow.core.protobuf import config_pb2
 import time
 
@@ -3885,7 +3895,7 @@ def copy_(variables, values, session=None, timeout_in_ms=None):
   variables = [x for x in variables]
   values = [x for x in values]
   ops = [x.initializer for x in variables]
-  vals = dict([(x.initializer.inputs[1], value.value() if isinstance(value, tf.Variable) else value) for x, value in zip(variables, values)]) # TODO: bfloat16 support
+  vals = dict([(x.initializer.inputs[1], to_value(value)) for x, value in zip(variables, values)]) # TODO: bfloat16 support
   #for x, (k, v) in zip(variables, vals.items()):
   #  print(x.name, x.shape.as_list(), k, v.shape)
   options = None
