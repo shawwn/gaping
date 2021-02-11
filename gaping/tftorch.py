@@ -2841,7 +2841,7 @@ class _ConvNd(Module):
         self.bias = self.globalvar(bias_name or 'bias', shape=[out_channels])
       else:
         self.bias = None
-    self.reset_parameters()
+      self.reset_parameters()
 
   def reset_parameters(self):
     kaiming_uniform_(self.weight, a=math.sqrt(5))
