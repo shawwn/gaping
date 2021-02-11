@@ -2808,6 +2808,7 @@ class _ConvNd(Module):
       groups,
       bias,
       padding_mode,
+      data_format,
       scope=None,
       weight_name=None,
       bias_name=None,
@@ -2821,6 +2822,9 @@ class _ConvNd(Module):
     if padding_mode not in valid_padding_modes:
       raise ValueError("padding_mode must be one of {}, but got padding_mode='{}'".format(
         valid_padding_modes, padding_mode))
+    if data_format not in ["NHWC", "NCHW"]:
+      raise ValueError("data_format must be one of {}, but got data_format='{}'".format(
+        ["NHWC", "NCHW"], data_format))
 
     with self.scope():
       self.in_channels = in_channels
@@ -2833,6 +2837,7 @@ class _ConvNd(Module):
       self.output_padding = output_padding
       self.groups = groups
       self.padding_mode = padding_mode
+      self.data_format = data_format
       if transposed:
         self.weight = self.globalvar(weight_name or 'weight', shape=[*kernel_size, out_channels, in_channels // groups])
       else:
@@ -2865,6 +2870,8 @@ class _ConvNd(Module):
           s += ', bias=False'
       if self.padding_mode != 'zeros':
           s += ', padding_mode={padding_mode}'
+      if self.data_format != 'NHWC':
+          s += ', data_format={data_format}'
       return s.format(**self.__dict__)
 
 
@@ -3012,6 +3019,7 @@ class Conv2d(_ConvNd):
         groups = 1,
         bias = True,
         padding_mode = 'zeros',  # TODO: refine this type
+        data_format = 'NHWC',
         scope='conv_2d',
         **kwargs,
     ):
@@ -3027,7 +3035,7 @@ class Conv2d(_ConvNd):
       dilation = _pair(dilation)
       super(Conv2d, self).__init__(
         in_channels, out_channels, kernel_size, stride, padding, dilation,
-        transposed, _pair(0), groups, bias, padding_mode, scope=scope, **kwargs)
+        transposed, _pair(0), groups, bias, padding_mode, data_format=data_format, scope=scope, **kwargs)
 
     def _conv_forward(self, input, weight):
         if self.padding_mode != 'zeros':
@@ -3041,7 +3049,7 @@ class Conv2d(_ConvNd):
         #padding = 'VALID'
         strides = [1, *self.stride, 1]
         #strides = self.stride
-        data_format = 'NHWC'
+        data_format = self.data_format
         padding = self.padding
         if isinstance(padding, (list, tuple)):
           #padding = [[0, 0], padding, padding, [0, 0]]
@@ -3057,7 +3065,7 @@ class Conv2d(_ConvNd):
         output = tf.nn.conv2d(input, weight, strides=strides, padding=padding, data_format=data_format, dilations=dilations)
         if self.bias is not None:
           #output = tf.add(output, self.bias)
-          output = tf.nn.bias_add(output, self.bias)
+          output = tf.nn.bias_add(output, self.bias, data_format=self.data_format)
         return output
 
     def forward(self, input):
