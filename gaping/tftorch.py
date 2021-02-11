@@ -2138,7 +2138,7 @@ def linear(input, weight, bias=None):
         - Bias: :math:`(out\_features)`
         - Output: :math:`(N, *, out\_features)`
     """
-    output = tf.matmul(input, weight)
+    output = tf.matmul(input, weight, transpose_b=True)
     if bias is not None:
         #output = tf.add(output, bias)
         output = tf.nn.bias_add(output, bias)
@@ -2202,7 +2202,7 @@ class Linear(Module):
           #   self.bias = tf.Variable(tf.zeros(shape=[out_features]), use_resource=True, name="b")
           # else:
           #   self.bias = None
-          self.weight = self.globalvar(weight_name or 'weight', shape=[in_features, out_features])
+          self.weight = self.globalvar(weight_name or 'weight', shape=[out_features, in_features])
           if bias:
             self.bias = self.globalvar(bias_name or 'bias', shape=[out_features])
           else:
@@ -2838,10 +2838,14 @@ class _ConvNd(Module):
       self.groups = groups
       self.padding_mode = padding_mode
       self.data_format = data_format
+      # if transposed:
+      #   self.weight = self.globalvar(weight_name or 'weight', shape=[*kernel_size, out_channels, in_channels // groups])
+      # else:
+      #   self.weight = self.globalvar(weight_name or 'weight', shape=[*kernel_size, in_channels, out_channels // groups])
       if transposed:
-        self.weight = self.globalvar(weight_name or 'weight', shape=[*kernel_size, out_channels, in_channels // groups])
+        self.weight = self.globalvar(weight_name or 'weight', shape=[in_channels, out_channels // groups, *kernel_size])
       else:
-        self.weight = self.globalvar(weight_name or 'weight', shape=[*kernel_size, in_channels, out_channels // groups])
+        self.weight = self.globalvar(weight_name or 'weight', shape=[out_channels, in_channels // groups, *kernel_size])
       if bias:
         self.bias = self.globalvar(bias_name or 'bias', shape=[out_channels])
       else:
@@ -2942,7 +2946,7 @@ Examples::
     input = pad(input, padding)
   padding = "VALID"
   dilation = _pair(dilation)
-  output = tf.nn.conv2d(input, weight, strides=stride, padding=padding, data_format=data_format, dilations=dilation)
+  output = tf.nn.conv2d(input, permute(weight, 2,3,1,0), strides=stride, padding=padding, data_format=data_format, dilations=dilation)
   if bias is not None:
     #output = tf.add(output, self.bias)
     output = tf.nn.bias_add(output, bias, data_format=data_format)
