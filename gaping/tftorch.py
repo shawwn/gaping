@@ -4983,8 +4983,6 @@ def pad(input, pad, mode='constant', value=0):
     raise NotImplementedError()
   assert len(pad) % 2 == 0, 'Padding length must be divisible by 2'
   assert len(pad) // 2 <= dim(input), 'Padding length too large'
-  if len(pad) != 4:
-    raise NotImplementedError()
-  L, R, T, B = pad
-  return tf.pad(input, [[T,B],[L,R]], mode='CONSTANT', constant_values=value)
+  padding = list(zip(pad[0::2], pad[1::2]))[::-1]
+  return tf.pad(input, padding, mode='CONSTANT', constant_values=value)
   
