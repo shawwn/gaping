@@ -750,7 +750,36 @@ def get_blob(addr):
   size = get_longlong(addr)[0]
   return memread(addr + 8, size)
 
-def get_blob_end(addr):
+def get_blob_end(addr, n=1):
   addr = ti64(addr)
   size = get_longlong(addr)[0]
-  return addr + 8 + size
+  addr = addr + 8 + size
+  n -= 1
+  if n > 0:
+    return get_blob_end(addr, n)
+  return addr
+
+# addr_ph = tf.placeholder(tf.int64, shape=()); data_ph = tf.placeholder(tf.string, shape=())
+# op = [xv6.get_blob_end(addr_ph, 2), xv6.get_blob(addr_ph), tf.shape(tf.io.decode_image(xv6.get_blob(xv6.get_blob_end(addr_ph,1)), channels=3))]
+# op = [xv6.get_blob_end(addr_ph, 2), tf.shape(tf.io.decode_image(xv6.get_blob(xv6.get_blob_end(addr_ph,1)), channels=3))]
+# pt = xv6.KERNBASE
+# >>> pt, name, shape = r( op, {addr_ph: pt} ); list(shape), name
+# ([423, 634, 3], b'/Volumes/birdie/data/conceptual_captions/download/https/i.dailymail.co.uk/i/pix/2012/11/20/article-2235635-162052EB000005DC-161_634x423.jpg')
+# >>> pt, name, shape = r( op, {addr_ph: pt} ); list(shape), name
+# ([954, 634, 3], b'/Volumes/birdie/data/conceptual_captions/download/https/i.dailymail.co.uk/i/pix/2012/10/05/article-0-155E3D30000005DC-463_634x954.jpg')
+# >>> pt, name, shape = r( op, {addr_ph: pt} ); list(shape), name
+# ([472, 634, 3], b'/Volumes/birdie/data/conceptual_captions/download/https/i.dailymail.co.uk/i/pix/2012/10/02/article-0-15460B26000005DC-969_634x472.jpg')
+# >>> pt, name, shape = r( op, {addr_ph: pt} ); list(shape), name
+# ([738, 634, 3], b'/Volumes/birdie/data/conceptual_captions/download/https/i.dailymail.co.uk/i/pix/2012/05/07/article-2140693-12F69005000005DC-866_634x738.jpg')
+# >>> pt, name, shape = r( op, {addr_ph: pt} ); list(shape), name
+# ([924, 634, 3], b'/Volumes/birdie/data/conceptual_captions/download/https/i.dailymail.co.uk/i/pix/2012/02/01/article-2094529-118B44F7000005DC-452_634x924.jpg')
+# >>> pt, name, shape = r( op, {addr_ph: pt} ); list(shape), name
+# ([817, 634, 3], b'/Volumes/birdie/data/conceptual_captions/download/https/i.dailymail.co.uk/i/pix/2012/12/16/article-2248872-168BD299000005DC-417_634x817.jpg')
+# >>> pt, name, shape = r( op, {addr_ph: pt} ); list(shape), name
+# ([466, 634, 3], b'/Volumes/birdie/data/conceptual_captions/download/https/i.dailymail.co.uk/i/pix/2012/03/31/article-2123302-12694D1A000005DC-581_634x466.jpg')
+# >>> pt, name, shape = r( op, {addr_ph: pt} ); list(shape), name
+# ([444, 638, 3], b'/Volumes/birdie/data/conceptual_captions/download/https/i.dailymail.co.uk/i/pix/2013/05/17/article-0-19D3BEED000005DC-312_638x444.jpg')
+# >>> pt, name, shape = r( op, {addr_ph: pt} ); list(shape), name
+# ([478, 634, 3], b'/Volumes/birdie/data/conceptual_captions/download/https/i.dailymail.co.uk/i/pix/2013/01/28/article-2269327-17347F73000005DC-638_634x478.jpg')
+# >>> pt, name, shape = r( op, {addr_ph: pt} ); list(shape), name
+# ([455, 634, 3], b'/Volumes/birdie/data/conceptual_captions/download/https/i.dailymail.co.uk/i/pix/2013/10/06/article-2446494-188E3ACA00000578-613_634x455.jpg')
