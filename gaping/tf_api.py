@@ -248,6 +248,11 @@ def tf_len(x):
     x = tf_array_size(x)
     x = tf_i64(x)
     return x
+  x = tf.convert_to_tensor(x)
+  if x.dtype == tf.string:
+    x = tf.strings.length(x)
+    x = tf_i64(x)
+    return x
   else:
     return tf.size(x, out_type=tf.int64)
 
