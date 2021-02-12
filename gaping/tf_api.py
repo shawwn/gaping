@@ -349,10 +349,12 @@ def tf_irange(start, limit=None, delta=1, dtype=tf.int64, name='range'):
 def tf_array_indices(ta):
   return tf_irange(tf_len32(ta))
 
-def tf_array_extend(ta, *args):
+def tf_array_extend(ta, *args, start=None, count=None):
   for value in args:
-    start = tf_len(ta)
-    count = tf_len(value)
+    if start is None:
+      start = tf_len(ta)
+    if count is None:
+      count = tf_len(value)
     indices = tf_irange(start, start + count)
     ta = tf_array_scatter(ta, indices=indices, value=value)
   return ta
