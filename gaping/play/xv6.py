@@ -225,21 +225,24 @@ def shapeof(x):
 def dim(x):
   return len(shapeof(x))
 
-def cast_page(page, dtype):
+def cast_page(page, dtype, set_shape=True):
+  page = tf.convert_to_tensor(page)
   if page.dtype == dtype:
     return page
   if page.dtype != tf.string:
     raise NotImplementedError()
   if dtype != tf.string:
     page = tf.io.decode_raw(page, dtype)
-    shape = [None] * dim(page)
-    shape[-1] = PGSIZE // dtype.size
-    page.set_shape(shape)
-    # if dtype != tf.uint8:
-    #   page = tf.bitcast(page, dtype)
+    if set_shape:
+      shape = [None] * dim(page)
+      shape[-1] = PGSIZE // dtype.size
+      page.set_shape(shape)
+      # if dtype != tf.uint8:
+      #   page = tf.bitcast(page, dtype)
   return page
 
 def join_pages(pages):
+  pages = tf.convert_to_tensor(pages)
   if dim(pages) <= 0:
     return pages
   if pages.dtype == tf.string:
@@ -323,11 +326,11 @@ from .. import tf_api as api
 
 def pagearr(page):
   buf = pagebuf(page)
-  ta = api.tf_array_new(tf.uint8)
-  ta = api.tf_array_extend(ta, buf)
+  ta = api.tf_array_new(tf.uint8, dynamic_size=False, size=tf.size(buf))
+  ta = api.tf_array_extend(ta, buf, start=0)
   return ta
 
-def memset(p, byte, size):
+def memset_slow(p, byte, size):
   byte = tf.constant(byte, tf.uint8)
   e = p + size
   def body(addr, end, page):
@@ -346,7 +349,7 @@ def memset(p, byte, size):
     return G.mem.insert(addr, optional_ref(page))
   return forpage(p, p+size, body)
 
-def memcpy(dst, src, size):
+def memcpy_slow(dst, src, size):
   dst = ti64(dst)
   size = ti64(size)
   dst_end = dst + size
@@ -368,6 +371,43 @@ def memcpy(dst, src, size):
     return G.mem.insert(addr, optional_ref(page))
   return forpage(dst, dst_end, body)
 
+def pageaddr(dst, size=1):
+  dst = ti64(dst)
+  pg_start = PGROUNDDOWN(dst)
+  pg_end = PGROUNDUP(dst + size)
+  #pg_step = tf.reshape(ti64(PGSIZE), dst.shape)
+  pg_step = ti64(PGSIZE)
+  #addrs = tf.unique( PGROUNDDOWN( tf.range(dst, dst_end, 1) ) )[0]
+  addrs = tf.range(pg_start, pg_end, pg_step, dtype=tf.int64)
+  return addrs
+
+def memput(addr, value, size, dtype=None):
+  src = tf_io_encode_raw(value, dtype=dtype)
+  return memcpy(addr, src, size)
+
+def memset(dst, value, size):
+  value = tf.convert_to_tensor(value, tf.uint8)
+  data = tf.fill([size], value)
+  return memput(dst, data, size)
+
+def memcpy(dst, src, size):
+  dst = ti64(dst)
+  size = ti64(size)
+  beg = PGROUNDDOWN(dst)
+  off = dst - beg
+  end = dst + size
+  upto = end - PGROUNDDOWN(end) - PGSIZE
+  data = memof(dst, size, tf.string, pagefault=False, clip=False)
+  lh = cut(data, 0, off)
+  md = tf.convert_to_tensor(src)
+  rh = cut(data, upto)
+  data = join_pages([lh, md, rh])
+  data = cast_page(data, tf.uint8, set_shape=False)
+  data = tf.reshape(data, [-1, PGSIZE])
+  pages = tf.map_fn(lambda x: optional_ref( tf_io_encode_raw(x) ), data, tf.variant)
+  addrs = pageaddr(dst, size)
+  return G.mem.insert(addrs, pages)
+
 def panic(condition, msg, *args):
   return tf.debugging.Assert(condition, [msg, *args])
 
@@ -377,7 +417,7 @@ def check(x, condition, msg, *args):
   with dep(panic(condition, msg, *args)):
     return tf.identity(x)
 
-def memread(dst, size, dtype=tf.string, pagefault=True):
+def memread_slow(dst, size, dtype=tf.string, pagefault=True):
   dst = ti64(dst)
   size = ti64(size)
   dst_end = dst + size
@@ -404,11 +444,31 @@ def memread(dst, size, dtype=tf.string, pagefault=True):
     out = tf.bitcast(out, dtype)
   return out
 
+
+def cut(x, start=None, upto=None):
+  x = tf.convert_to_tensor(x)
+  n = api.tf_len(x)
+  if start is None:
+    start = ti64(0)
+  if upto is None:
+    upto = n
+  start = tf.where(start < 0, start + n, start)
+  upto = tf.where(upto < 0, upto + n, upto)
+  upto = tf.where(upto < start, start, upto)
+  size = upto - start
+  if x.dtype == tf.string:
+    x = tf.strings.substr(x, start, size)
+  else:
+    x = x[start:start+size]
+  return x
+
+
 def memof(dst, size, dtype=tf.string, pagefault=True, clip=False):
   dst = ti64(dst)
   size = ti64(size)
-  size = tf.reshape(size, dst.shape)
-  pg_step = tf.reshape(ti64(PGSIZE), dst.shape)
+  # size = tf.reshape(size, dst.shape)
+  # pg_step = tf.reshape(ti64(PGSIZE), dst.shape)
+  pg_step = ti64(PGSIZE)
   dst_end = dst + size
   pg_start = PGROUNDDOWN(dst)
   pg_end = PGROUNDUP(dst_end)
@@ -421,10 +481,7 @@ def memof(dst, size, dtype=tf.string, pagefault=True, clip=False):
     if dtype != tf.string:
       off //= dtype.size
       size //= dtype.size
-    if out.dtype == tf.string:
-      out = tf.strings.substr(out, off, size)
-    else:
-      out = out[off:off+size]
+    out = cut(out, off, off+size)
   return out
 
 def memread(dst, size, dtype=tf.string, pagefault=True):
@@ -496,7 +553,7 @@ def get_var_list(existing=None):
 # tf.train.Saver(var_list=[tf.lookup.experimental.DenseHashTable._Saveable( xv6.G.mem, 'mem' )]).restore(sess, 'gs://ml-euw4/tmp/feb11/xv6_mem')
 
 class Saver(tf.train.Saver):
-  def __init__(self, var_list=None, path='gs://ml-euw4/tmp/feb11/xv6', **kws):
+  def __init__(self, var_list=None, path='gs://ml-euw4/tmp/feb12/xv6', **kws):
     self.path = path
     self.var_list = get_var_list(var_list)
     super().__init__(self.var_list, **kws)
@@ -655,10 +712,6 @@ class _swapped_meta(type(ct.Structure)):
         super().__setattr__(attrname, value)
 
 
-def memput(addr, value, size, dtype):
-  src = tf_io_encode_raw(value, dtype=dtype)
-  return memcpy(addr, src, size)
-
 
 get_long = functools.partial(memread, size=4, dtype=tf.int32)
 get_ulong = functools.partial(memread, size=4, dtype=tf.uint32)
@@ -676,3 +729,28 @@ set_double = functools.partial(memput, size=8, dtype=tf.float64)
 set_float = functools.partial(memput, size=4, dtype=tf.float32)
 set_char = functools.partial(memput, size=1, dtype=tf.uint8)
 
+
+def set_blob(addr, value, size=None):
+  if size is None:
+    size = api.tf_len(value)
+  addr = ti64(addr)
+  size = ti64(size)
+  # WARNING: this won't work! either the first op or the second op
+  # will apply, but not both, due to pointer aliasing.
+  # return [
+  #     set_longlong(addr, size),
+  #     memcpy(addr + 8, value, size),
+  #     ]
+  with dep(set_longlong(addr, size)):
+    with dep(memcpy(addr + 8, value, size)):
+      return addr + 8 + size
+
+def get_blob(addr):
+  addr = ti64(addr)
+  size = get_longlong(addr)[0]
+  return memread(addr + 8, size)
+
+def get_blob_end(addr):
+  addr = ti64(addr)
+  size = get_longlong(addr)[0]
+  return addr + 8 + size
