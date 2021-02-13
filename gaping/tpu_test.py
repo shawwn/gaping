@@ -45,10 +45,17 @@ class TpuTest(parameterized.TestCase, test_utils.GapingTestCase):
   def tpu_core_count(self):
     return 8 # TODO
 
+  def tpu_device_assignment(self):
+    return wrapper.get_core_assignment(list(range(8)))
+
+  def shard(self, *args, **kws):
+    device_assignment = tpu_device_assignment()
+    return wrapper.tpu_shard(*args, device_assignment=device_assignment, **kws)
+
   def test_003_add_tpu_cores(self):
     with tf.Graph().as_default():
       self.assertAllEqual([[3., 3., 3., 3., 3., 3., 3., 3.]],
-          self.evaluate(wrapper.tpu_shard(lambda: tf.add(1, 2))))
+          self.evaluate(self.shard(lambda: tf.add(1, 2))))
 
   def test_004_permute(self):
     with tf.Graph().as_default():
@@ -57,7 +64,7 @@ class TpuTest(parameterized.TestCase, test_utils.GapingTestCase):
         return tpu.tpu_ops.collective_permute(tensor,
             [[0, 1], [1, 0], [2, 3], [3, 2], [4, 5], [5, 4], [6, 7], [7, 6]])
       self.assertAllEqual([[[2.], [1.], [4.], [3.], [6.], [5.], [8.], [7.]]],
-          self.evaluate(wrapper.tpu_shard(on_cores, inputs=inputs)))
+          self.evaluate(self.shard(on_cores, inputs=inputs)))
 
   def test_005_queue(self):
     with tf.Graph().as_default():
