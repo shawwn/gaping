@@ -752,16 +752,15 @@ def get_blob(addr):
 
 def get_blob_end(addr, n=1):
   addr = ti64(addr)
-  size = get_longlong(addr)[0]
-  addr = addr + 8 + size
-  n -= 1
-  if n > 0:
-    return get_blob_end(addr, n)
+  def inner(i, addr):
+    size = get_longlong(addr)[0]
+    return addr + 8 + size
+  _, addr = fori(0, n, 1, inner, addr)
   return addr
 
 # addr_ph = tf.placeholder(tf.int64, shape=()); data_ph = tf.placeholder(tf.string, shape=())
+## op = [xv6.get_blob_end(addr_ph, 2), tf.shape(tf.io.decode_image(xv6.get_blob(xv6.get_blob_end(addr_ph,1)), channels=3))]
 # op = [xv6.get_blob_end(addr_ph, 2), xv6.get_blob(addr_ph), tf.shape(tf.io.decode_image(xv6.get_blob(xv6.get_blob_end(addr_ph,1)), channels=3))]
-# op = [xv6.get_blob_end(addr_ph, 2), tf.shape(tf.io.decode_image(xv6.get_blob(xv6.get_blob_end(addr_ph,1)), channels=3))]
 # pt = xv6.KERNBASE
 # >>> pt, name, shape = r( op, {addr_ph: pt} ); list(shape), name
 # ([423, 634, 3], b'/Volumes/birdie/data/conceptual_captions/download/https/i.dailymail.co.uk/i/pix/2012/11/20/article-2235635-162052EB000005DC-161_634x423.jpg')
