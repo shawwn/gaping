@@ -14,7 +14,7 @@ from gevent.pool import Pool
 import requests
 import httpx
 import httpcore
-from gaping.httpx import transports
+#from gaping.httpx import transports
 
 
 def fetch(client, url, pbar, bbar, ibar, ebar):
