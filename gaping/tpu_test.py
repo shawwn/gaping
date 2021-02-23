@@ -10,6 +10,7 @@ from absl.testing import parameterized
 
 from gaping import test_utils
 from gaping import wrapper
+from gaping.device import functional as device_fns
 
 from gaping.wrapper import tpu_ops
 from tensorflow.python.tpu import tpu
@@ -43,10 +44,10 @@ class TpuTest(parameterized.TestCase, test_utils.GapingTestCase):
       self.assertEqual(3, self.evaluate(tf.add(1, 2)))
 
   def tpu_core_count(self):
-    return 8 # TODO
+    return 8
 
   def tpu_device_assignment(self):
-    return wrapper.get_core_assignment(list(range(8)), topology=self.topology)
+    return device_fns.device_assignment(topology=self.topology, num_replicas=self.tpu_core_count())
 
   def shard(self, *args, **kws):
     device_assignment = self.tpu_device_assignment()
