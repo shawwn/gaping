@@ -46,7 +46,7 @@ class TpuTest(parameterized.TestCase, test_utils.GapingTestCase):
     return 8 # TODO
 
   def tpu_device_assignment(self):
-    return wrapper.get_core_assignment(list(range(8)))
+    return wrapper.get_core_assignment(list(range(8)), topology=self.topology)
 
   def shard(self, *args, **kws):
     device_assignment = self.tpu_device_assignment()
