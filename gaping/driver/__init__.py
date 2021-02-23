@@ -53,7 +53,7 @@ from tensorflow.python.tpu import topology as topology_lib
 from tensorflow.python.framework import errors_impl
 
 
-def fetch_tpu_topology(session=None):
+def fetch_tpu_topology(resolver, session=None):
   if session is None:
     session = tf.get_default_session()
   with Driver(session).fork(): # don't pollute the existing graph
@@ -65,7 +65,7 @@ def fetch_tpu_topology(session=None):
       serialized = tpu_topology_var.eval()
       topology = topology_lib.Topology(serialized=serialized)
     except errors_impl.FailedPreconditionError: # variable doesn't exist
-      topology = tpu_strategy_util.initialize_tpu_system(self.resolver)
+      topology = tpu_strategy_util.initialize_tpu_system(resolver)
       tpu_topology_var.load(topology.serialized())
     return topology
 
@@ -79,7 +79,7 @@ class TPUDriver(CreateSessionDriver):
     tf.logging.info('%s', cluster_def)
     config = wrapper.make_session_config(cluster_spec=cluster_spec)
     super().__init__(target=target, graph=graph, interactive=interactive)
-    self.topology = fetch_tpu_topology(session=self.session)
+    self.topology = fetch_tpu_topology(resolver=self.resolver, session=self.session)
 
 
 def new(tpu=None, **kws):
