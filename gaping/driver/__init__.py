@@ -2,8 +2,31 @@ from .. import wrapper
 
 import tensorflow as tf
 
+from tensorflow.python.framework import ops
+from tensorflow.python.ops import critical_section_ops
+from tensorflow.python.ops import state_ops
+from tensorflow.python.tpu import topology as topology_lib
+
 from contextlib import contextmanager
 import os
+
+@contextmanager
+def use_session(session):
+  with session.graph.as_default(), session.as_default():
+    yield session
+
+
+@contextmanager
+def fork_session(session, graph=None):
+  if graph is None:
+    graph = tf.Graph()
+  elif graph is True:
+    graph = session.graph
+  new_session = wrapper.clone_session(session=session, graph=graph)
+  with new_session:
+    with use_session(new_session) as sess:
+      yield sess
+
 
 class Driver:
   def __init__(self, session):
@@ -16,20 +39,11 @@ class Driver:
   def run(self, *args, **kws):
     return self.session.run(*args, **kws)
 
-  @contextmanager
   def use(self):
-    with self.graph.as_default(), self.session.as_default():
-      yield
+    return use_session(self.session)
 
-  @contextmanager
   def fork(self, graph=None):
-    if graph is None:
-      graph = tf.Graph()
-    elif graph is True:
-      graph = self.graph
-    session = wrapper.clone_session(session=self.session, graph=graph)
-    with session, graph.as_default(), session.as_default():
-      yield session
+    return fork_session(self.session, graph=graph)
 
   def close(self):
     self.session.close()
@@ -51,30 +65,47 @@ class CPUDriver(CreateSessionDriver):
     super().__init__(graph=graph, interactive=interactive)
 
 
-from tensorflow.python.tpu import tpu_strategy_util
-from tensorflow.python.tpu import topology as topology_lib
-from tensorflow.python.framework import errors_impl
+def get_tpu_topology_var():
+  with ops.init_scope(), tf.variable_scope('', reuse=tf.AUTO_REUSE):
+    return tf.get_variable('tpu_topology',
+        dtype=tf.string, shape=(), initializer=tf.initializers.zeros,
+        collections=['local_variables'], use_resource=True, trainable=False)
 
 
-def fetch_tpu_topology(resolver, session=None):
+def fetch_tpu_topology_unsafe(tpu_topology_var):
+  with ops.colocate_with(tpu_topology_var):
+    return tf.cond(state_ops.is_variable_initialized(tpu_topology_var),
+        lambda: [False, tpu_topology_var.read_value()],
+        lambda: [True, tpu_topology_var.assign(tf.tpu.initialize_system())])
+
+
+def fetch_tpu_topology(tpu_topology_var=None):
+  if tpu_topology_var is None:
+    tpu_topology_var = get_tpu_topology_var()
+  # this doesn't actually protect against multiple processes
+  # initializing a TPU simultaneously. I think it has to do with the
+  # fact that tf.tpu.initialize_system() is on /device:TPU_SYSTEM:0
+  # whereas the tpu_topology_var is on the TPU CPU.
+  # cs = critical_section_ops.CriticalSection(name="tpu_topology_lock", shared_name="tpu_topology_lock")
+  # return cs.execute(lambda: fetch_tpu_topology_unsafe(tpu_topology_var))
+  return fetch_tpu_topology_unsafe(tpu_topology_var)
+
+
+def get_tpu_topology(serialized=None, session=None):
   if session is None:
     session = tf.get_default_session()
-  with Driver(session).fork(): # don't pollute the existing graph
-    with tf.variable_scope('', reuse=tf.AUTO_REUSE):
-      tpu_topology_var = tf.get_variable('tpu_topology',
-          dtype=tf.string, shape=(), initializer=tf.initializers.zeros,
-          collections=['local_variables'], use_resource=True, trainable=False)
-    try:
-      serialized = tpu_topology_var.eval()
-      topology = topology_lib.Topology(serialized=serialized)
-    except errors_impl.FailedPreconditionError: # variable doesn't exist
-      topology = tpu_strategy_util.initialize_tpu_system(resolver)
-      tpu_topology_var.load(topology.serialized())
-    return topology
+  if serialized is None:
+    with fork_session(session) as sess: # don't pollute the existing graph
+      initialized, serialized = sess.run(fetch_tpu_topology())
+      tf.logging.info('%s %s',
+        'Initialized TPU' if initialized else "Did not initialize TPU",
+        sess._target.decode('utf-8'))
+  topology = topology_lib.Topology(serialized=serialized)
+  return topology
 
 
 class TPUDriver(CreateSessionDriver):
-  def __init__(self, tpu=None, zone=None, project=None, graph=None, interactive=False):
+  def __init__(self, tpu=None, zone=None, project=None, graph=None, interactive=False, topology=None):
     self.resolver = wrapper.TPUClusterResolver(tpu=tpu, zone=zone, project=project)
     target = self.resolver.get_master()
     cluster_spec = self.resolver.cluster_spec()
@@ -82,7 +113,9 @@ class TPUDriver(CreateSessionDriver):
     tf.logging.info('%s', cluster_def)
     config = wrapper.make_session_config(cluster_spec=cluster_spec)
     super().__init__(target=target, graph=graph, config=config, interactive=interactive)
-    self.topology = fetch_tpu_topology(resolver=self.resolver, session=self.session)
+    if topology is None:
+      topology = get_tpu_topology(session=self.session)
+    self.topology = topology
 
 
 def new(tpu=None, **kws):
