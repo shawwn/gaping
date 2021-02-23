@@ -26,6 +26,7 @@ def reset_session(session=None, graph=None, interactive=True, **kws):
   if 'driver' in globals():
     driver = globals()['driver']
     driver.session = session2
+    session2.driver = driver
     globals()['r'] = driver.run
     globals()['shard'] = driver.shard
   return session2
