@@ -31,6 +31,9 @@ class Driver:
     with session, graph.as_default(), session.as_default():
       yield session
 
+  def close(self):
+    self.session.close()
+
 
 class CreateSessionDriver(Driver):
   def __init__(self, target='', graph=None, config=None, interactive=False):

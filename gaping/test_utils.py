@@ -7,6 +7,7 @@ import tensorflow as tf
 import tensorflow.compat.v1 as tf1
 
 from gaping import wrapper
+import gaping.driver
 
 from tensorflow.python.eager import context
 from tensorflow.python.framework import ops
@@ -42,10 +43,9 @@ class GapingTestCase(tf.test.TestCase):
 
   def cached_session(self, interactive=False):
     if self._cached_session is None:
-      self._cached_session = wrapper.create_session(interactive=interactive)
-      if self.topology is None and 'TPU_NAME' in os.environ:
-        # Get the TPU topology.
-        self.topology = wrapper.get_topology(force=bool(int(os.getenv('TPU_INIT', '0'))))
+      driver = gaping.driver.new(interactive=interactive)
+      self._cached_session = driver.session
+      self.topology = getattr(driver, 'topology', None)
     return self._cached_session
 
   def evaluate(self, tensors, **kws):
