@@ -8,6 +8,7 @@ import gaping.wrapper
 import tensorflow as tf
 
 from pprint import pprint as pp
+from importlib import reload
 
 if __name__ == '__main__':
   gaping.wrapper.patch_tensorflow_interactive()
