@@ -28,7 +28,7 @@ class Driver:
     elif graph is True:
       graph = self.graph
     session = wrapper.clone_session(session=self.session, graph=graph)
-    with session, self.graph.as_default(), self.session.as_default():
+    with session, graph.as_default(), session.as_default():
       yield session
 
 
