@@ -1,4 +1,5 @@
 from .. import wrapper
+from .. import tf_tools as tft
 
 import tensorflow as tf
 
@@ -31,6 +32,7 @@ def fork_session(session, graph=None):
 class Driver:
   def __init__(self, session):
     self.session = session
+    self.session.driver = getattr(session, 'driver', self)
 
   @property
   def graph(self):
@@ -116,6 +118,17 @@ class TPUDriver(CreateSessionDriver):
     if topology is None:
       topology = get_tpu_topology(session=self.session)
     self.topology = topology
+
+  def device_assignment(self, cores=None):
+    if cores is not None:
+      return wrapper.get_core_assignment( cores, topology=self.topology )
+    else:
+      return wrapper.get_device_assignment( topology=self.topology )
+
+  def shard(self, fn, device_assignment=None):
+    if device_assignment is None:
+      device_assignment = self.device_assignment()
+    return tft.tpu_shard(fn, device_assignment=device_assignment)
 
 
 def new(tpu=None, **kws):
