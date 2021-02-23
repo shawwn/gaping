@@ -81,7 +81,7 @@ class TPUDriver(CreateSessionDriver):
     cluster_def = cluster_spec.as_cluster_def()
     tf.logging.info('%s', cluster_def)
     config = wrapper.make_session_config(cluster_spec=cluster_spec)
-    super().__init__(target=target, graph=graph, interactive=interactive)
+    super().__init__(target=target, graph=graph, config=config, interactive=interactive)
     self.topology = fetch_tpu_topology(resolver=self.resolver, session=self.session)
 
 
