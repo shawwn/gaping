@@ -31,7 +31,7 @@ def reset_session(session=None, graph=None, interactive=True, **kws):
   return session2
 
 if __name__ == '__main__':
-  gaping.wrapper.patch_tensorflow_interactive()
+  _tf_patch = gaping.wrapper.patch_tensorflow_interactive()
   driver = gaping.driver.new(interactive=True)
   r = driver.run
   shard = driver.shard
