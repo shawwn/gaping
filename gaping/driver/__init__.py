@@ -2,6 +2,7 @@ from .. import wrapper
 from .. import tf_tools as tft
 
 import tensorflow as tf
+import time
 
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import critical_section_ops
@@ -50,6 +51,10 @@ class Driver:
   def close(self):
     self.session.close()
 
+  def uniq(self, base='x'):
+    with self.use():
+      return base + str(int(time.time() * 1e9)) + '_' + str(ops.uid())
+
 
 class CreateSessionDriver(Driver):
   def __init__(self, target='', graph=None, config=None, interactive=False):
@@ -67,11 +72,23 @@ class CPUDriver(CreateSessionDriver):
     super().__init__(graph=graph, interactive=interactive)
 
 
-def get_tpu_topology_var():
+def localvar(name, dtype, shape=(), shared=True, initial_value=None):
   with ops.init_scope(), tf.variable_scope('', reuse=tf.AUTO_REUSE):
-    return tf.get_variable('tpu_topology',
-        dtype=tf.string, shape=(), initializer=tf.initializers.zeros,
+    if not shared:
+      name = get().uniq(name)
+    if initial_value is None:
+      initializer = tf.initializers.zeros
+    else:
+      if dtype is None:
+        import pdb; pdb.set_trace()
+      initializer = tf.initializers.constant(value=initial_value, dtype=dtype)
+    return tf.get_variable(name,
+        dtype=dtype, shape=shape, initializer=initializer,
         collections=['local_variables'], use_resource=True, trainable=False)
+
+
+def get_tpu_topology_var():
+  return localvar('tpu_topology', tf.string)
 
 
 def fetch_tpu_topology_unsafe(tpu_topology_var):
@@ -125,10 +142,10 @@ class TPUDriver(CreateSessionDriver):
     else:
       return wrapper.get_device_assignment( topology=self.topology )
 
-  def shard(self, fn, device_assignment=None):
+  def shard(self, fn, device_assignment=None, *args, **kws):
     if device_assignment is None:
       device_assignment = self.device_assignment()
-    return tft.tpu_shard(fn, device_assignment=device_assignment)
+    return tft.tpu_shard(fn, device_assignment=device_assignment, *args, **kws)
 
 
 def new(tpu=None, **kws):
@@ -140,3 +157,9 @@ def new(tpu=None, **kws):
     return TPUDriver(tpu=tpu, zone=zone, project=project, **kws)
   else:
     return CPUDriver(**kws)
+
+
+def get(session=None):
+  if session is None:
+    session = tf.compat.v1.get_default_session()
+  return getattr(session, 'driver', None)

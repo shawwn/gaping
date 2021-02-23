@@ -52,16 +52,30 @@ def tpu_id():
   replica_id = tf.cast(tf.cast(xla.replica_id(), tf.uint32), tf.int32)
   return replica_id
 
-
-def tpu_cpu(f, *args, **kws):
-  graph = tf.get_default_graph()
+def get_outside_context(graph=None):
+  if graph is None:
+    graph = ops.get_default_graph()
+  # pylint: disable=protected-access
   context = graph._get_control_flow_context()
+  # pylint: enable=protected-access
+  while context is not None and not hasattr(context, '_outside_compilation_counter'):
+    context = context.outer_context
+  return context
+
+def tpu_cpu(f, *args, mutex=None, **kws):
+  graph = tf.get_default_graph()
+  context = get_outside_context(graph)
   #print(context._outside_compilation_cluster)
   #print(context._outside_compilation_counter)
+  def inner(*args, **kws):
+    if mutex is not None:
+      return mutex.execute(lambda: f(*args, **kws))
+    else:
+      return f(*args, **kws)
   if context is not None and context._outside_compilation_counter > 0:
-    return f(*args, **kws)
+    return inner(*args, **kws)
   else:
-    return tpu_lib.outside_compilation(f, *args, **kws)
+    return tpu_lib.outside_compilation(inner, *args, **kws)
 
 def tpu_now():
   return tpu_cpu(lambda: tf.identity(tf.timestamp(), name="timestamp"))
@@ -167,7 +181,7 @@ def transform_image(image, target_image_shape=None, crop_method='none', seed=Non
     image.set_shape(target_image_shape)
   return image
 
-def save_image_grid(x, fname, normalize=False, pad_value=0.5**(1/2.2), return_grid=False, **kws):
+def save_image_grid(x, fname=None, normalize=False, pad_value=0.5**(1/2.2), return_grid=False, **kws):
   if np.ndim(x) == 3:
      x = np.expand_dims(x, 0)
   x = np.transpose(x, [0,3,1,2])
@@ -175,9 +189,10 @@ def save_image_grid(x, fname, normalize=False, pad_value=0.5**(1/2.2), return_gr
   from torchvision.utils import make_grid
   import torch
   t = torch.tensor(x)
-  save_image(t, fname, normalize=normalize, pad_value=pad_value, **kws)
-  t = make_grid(t, normalize=normalize, pad_value=pad_value, **kws)
+  if fname:
+    save_image(t, fname, normalize=normalize, pad_value=pad_value, **kws)
   if return_grid:
+    t = make_grid(t, normalize=normalize, pad_value=pad_value, **kws)
     x = t.numpy()
     if np.ndim(x) == 3:
       x = np.expand_dims(x, 0)
