@@ -3,6 +3,7 @@ from .. import wrapper
 import tensorflow as tf
 
 from contextlib import contextmanager
+import os
 
 class Driver:
   def __init__(self, session):
@@ -80,3 +81,13 @@ class TPUDriver(CreateSessionDriver):
     super().__init__(target=target, graph=graph, interactive=interactive)
     self.topology = fetch_tpu_topology(session=self.session)
 
+
+def new(tpu=None, **kws):
+  zone = kws.pop('zone', None)
+  project = kws.pop('project', None)
+  if tpu is None:
+    tpu = os.environ.get('TPU_NAME')
+  if tpu:
+    return TPUDriver(tpu=tpu, zone=zone, project=project, **kws)
+  else:
+    return CPUDriver(**kws)
