@@ -3,9 +3,10 @@ from typing_extensions import Protocol
 from abc import abstractmethod
 
 
-class Cursored(Protocol):
+class EventFactory(Protocol):
 
   @abstractmethod
-  def get_cursor(self):
+  def new_instance(self, buffer_size=None):
     ...
+
 

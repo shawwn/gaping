@@ -1,13 +1,15 @@
 import sys
 import os
+import time
+
 sys.path += [os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))]
 
 import gaping.driver
 import gaping.wrapper
 
-import tensorflow as tf
-
 from gaping import tf_tools as tft
+
+import tensorflow as tf
 
 import numpy as np
 import tqdm
@@ -29,6 +31,7 @@ def reset_session(session=None, graph=None, interactive=True, **kws):
     session2.driver = driver
     globals()['r'] = driver.run
     globals()['shard'] = driver.shard
+    print(driver.run(tf.tpu.initialize_system()))
   return session2
 
 if __name__ == '__main__':

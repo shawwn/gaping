@@ -1,18 +1,12 @@
-from .. import driver as driver_lib
-from .. import tf_tools as tft
+from typing_extensions import Protocol
 
-import tensorflow as tf
-
-# from . import padded_long
-# from . import sequence
-# from . import util
-# from . import pipe
-# from . import latch as latch_lib
+from abc import abstractmethod
 
 
-class EventHandler:
+class EventHandler(Protocol):
+  @abstractmethod
   def on_event(self, event, sequence, end_of_batch):
-    raise NotImplementedError()
+    ...
 
 
 class LatchEventHandler(EventHandler):

@@ -11,9 +11,15 @@ def make_mutex(name, shared=False):
 
 from .. import tf_tools as tft
 
-class PaddedLong:
+from . import initializable
+
+class PaddedLong(initializable.Initializable):
   def __init__(self, initial_value=None, dtype=tf.int64, shape=(), shared=False, name='x'):
     self.var = driver_lib.localvar(name=name, dtype=dtype, shape=shape, shared=shared, initial_value=initial_value)
+
+  def get_initializers(self):
+    return super().get_initializers() + \
+        [self.var.initializer]
 
   def get(self):
     def on_cpu():
@@ -40,7 +46,3 @@ class PaddedLong:
         v = tf.cast(value, dtype=self.var.dtype)
         return self.var.assign_add(v, read_value=read_value, use_locking=use_locking)
     return tft.tpu_cpu(on_cpu, value)
-
-  @property
-  def initializer(self):
-    return self.var.initializer
