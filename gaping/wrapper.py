@@ -312,7 +312,13 @@ def create_session_config():
   # share variables across sessions on TPUs
   session_config.experimental.share_session_state_in_clusterspec_propagation = True
   # TODO: research this. What does it do?
-  # session_config.share_cluster_devices_in_session = True
+  # // When true, WorkerSessions are created with device attributes from the
+  # // full cluster.
+  # // This is helpful when a worker wants to partition a graph
+  # // (for example during a PartitionedCallOp).
+  #
+  # we need this on multi-TPU runtimes due to this error: https://i.imgur.com/IcOhxWB.png
+  session_config.experimental.share_cluster_devices_in_session = True
   return session_config
 
 from tensorflow.python.training import server_lib
