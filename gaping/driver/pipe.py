@@ -11,15 +11,12 @@ from . import util
 
 
 class PipeBuilder:
-  def __init__(self, stager=None):
+  def __init__(self):
     self.dtypes = []
     self.shapes = []
     self.names = []
-    if stager is not None:
-      for name, dtype, shape in zip(stager.names, stager.dtypes, stager.shapes):
-        self.input(name=name, dtype=dtype, shape=shape)
 
-  def input(self, name, dtype, shape=()):
+  def channel(self, name, dtype, shape=()):
     assert name not in self.names
     self.dtypes.append(dtype)
     self.names.append(name)
@@ -36,3 +33,19 @@ class PipeBuilder:
     self.names.clear()
     return stager
 
+
+class InfeedOutfeedBuilder:
+  def __init__(self):
+    self.infeed_builder = PipeBuilder()
+    self.outfeed_builder = PipeBuilder()
+
+  def input(self, name, dtype, shape=(), **kws):
+    return self.infeed_builder.channel(name=name, dtype=dtype, shape=shape, **kws)
+
+  def output(self, name, dtype, shape=(), **kws):
+    return self.outfeed_builder.channel(name=name, dtype=dtype, shape=shape, **kws)
+
+  def get(self, ordered=True, **kws):
+    infeed = self.infeed_builder.get(ordered=ordered, **kws)
+    outfeed = self.outfeed_builder.get(ordered=ordered, **kws)
+    return infeed, outfeed

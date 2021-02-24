@@ -5,14 +5,12 @@ import tensorflow as tf
 from . import padded_long
 from . import sequence
 from . import util
+from . import sequencer
 
-class Sequencer:
-  INITIAL_CURSOR_VALUE = -1
-
-class AbstractSequencer(Sequencer):
+class AbstractSequencer(sequencer.Sequencer):
   def __init__(self, buffer_size, wait_strategy):
     super().__init__()
-    self.cursor = sequence.Sequence(Sequencer.INITIAL_CURSOR_VALUE)
+    self.cursor = sequence.Sequence(sequencer.Sequencer.INITIAL_CURSOR_VALUE)
     self.gating_sequences = set()
     with util.dep(tf.assert_greater_equal(buffer_size, 1)):
       self.buffer_size = buffer_size
@@ -106,12 +104,20 @@ class SingleProducerSequencer(AbstractSequencer):
         yes,
         lambda: True)
 
-  def try_next(self, n=1):
+  def try_next_n(self, n):
     n = util.ti64(n)
     n = util.check(n, n >= 1, "n must be > 0") 
-    n = util.check(n, self._has_available_capacity(n, True), "insufficient capacity")
-    next_sequence = self.next_value.increment(n)
-    return next_sequence
+    if False:
+      n = util.check(n, self._has_available_capacity(n, True), "insufficient capacity")
+      next_sequence = self.next_value.increment(n)
+      return next_sequence
+    else:
+      return tf.cond(self._has_available_capacity(n, True),
+          lambda: self.next_value.increment(n),
+          lambda: util.ti64(-1))
+
+  def next_n(self, n):
+    raise NotImplementedError()
 
   def remaining_capacity(self):
     next_value = self.next_value.get()
@@ -141,7 +147,7 @@ class SingleProducerSequencer(AbstractSequencer):
 class MultiProducerSequencer(AbstractSequencer):
   def __init__(self, buffer_size, wait_strategy):
     super().__init__(buffer_size=buffer_size, wait_strategy=wait_strategy)
-    self.gating_sequence_cache = padded_long.PaddedLong(Sequencer.INITIAL_CURSOR_VALUE)
+    self.gating_sequence_cache = padded_long.PaddedLong(sequencer.Sequencer.INITIAL_CURSOR_VALUE)
 
   def get_initializers(self):
     return super().get_initializers() + [
@@ -169,7 +175,7 @@ class MultiProducerSequencer(AbstractSequencer):
   def claim(self, sequence):
     return self.cursor.set(sequence)
 
-  def try_next(self, n=1):
+  def try_next_n(self, n):
     n = util.ti64(n)
     n = util.check(n, n >= 1, "n must be > 0") 
     def body(i):

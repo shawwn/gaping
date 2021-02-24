@@ -98,13 +98,18 @@ pfor_flags.FLAGS.op_conversion_fallback_to_while_loop = True
 
 from tensorflow.python.ops.parallel_for import control_flow_ops as pfor_control_flow_ops
 
+def loop_n(thunk, n, **kws):
+  return pfor_control_flow_ops.pfor(thunk, iters=n, **kws)
+
+def loop_n_i64(thunk, n, **kws):
+  return loop_n(lambda i: thunk(ti64(i)), n, **kws)
 
 # def loop_n(thunk, dtypes, n, **kws):
 #   parallel_iterations = kws.pop('parallel_iterations', 1)
 #   return pfor_control_flow_ops.for_loop(thunk, dtypes, iters=n, parallel_iterations=parallel_iterations, **kws)
 
 
-def loop_n(thunk, n, initial_value=0, **kws):
+def loop_reduce(thunk, n, initial_value=0, **kws):
   parallel_iterations = kws.pop('parallel_iterations', 1)
   if callable(initial_value):
     initial_value = initial_value()
