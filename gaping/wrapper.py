@@ -330,7 +330,10 @@ def make_session_config(cluster_spec=None, config=None):
   if config is None:
     config = create_session_config()
   if cluster_spec is not None:
-    cluster_def = cluster_spec.as_cluster_def()
+    if hasattr(cluster_spec, 'as_cluster_def'):
+      cluster_def = cluster_spec.as_cluster_def()
+    else:
+      cluster_def = cluster_spec
     config.cluster_def.CopyFrom(cluster_def)
   return config
 
@@ -408,15 +411,15 @@ try:
 except FileNotFoundError:
   pass
 
-def get_tpu_resolver(tpu_or_resolver=None, zone=None, project=None):
+def get_tpu_resolver(tpu_or_resolver=None, zone=None, project=None, **kws):
   if tpu_or_resolver is None or isinstance(tpu_or_resolver, str):
-    tpu_or_resolver = TPUClusterResolver(tpu=tpu_or_resolver, zone=zone, project=project)
+    tpu_or_resolver = TPUClusterResolver(tpu=tpu_or_resolver, zone=zone, project=project, **kws)
   return tpu_or_resolver
 
-def get_tpu_name(tpu_or_resolver=None, zone=None, project=None):
+def get_tpu_name(tpu_or_resolver=None, zone=None, project=None, **kws):
   if tpu_or_resolver is None or isinstance(tpu_or_resolver, str):
     try:
-      tpu_or_resolver = TPUClusterResolver(tpu=tpu_or_resolver, zone=zone, project=project)
+      tpu_or_resolver = TPUClusterResolver(tpu=tpu_or_resolver, zone=zone, project=project, **kws)
     except ValueError as e:
       if str(e) == 'Please provide a TPU Name to connect to.':
         return None
@@ -436,10 +439,10 @@ def cached_topology(tpu=None, zone=None, project=None):
     serialized = base64.b64decode(result)
     return topology_lib.Topology(serialized=serialized)
 
-def get_topology(tpu=None, zone=None, project=None, force=False):
+def get_topology(tpu=None, zone=None, project=None, force=False, **kws):
   tpu_topology = cached_topology(tpu=tpu, zone=zone, project=project)
   if tpu_topology is None or force:
-    res = get_tpu_resolver(tpu, zone=zone, project=project)
+    res = get_tpu_resolver(tpu, zone=zone, project=project, **kws)
     tpu_topology = tpu_strategy_util.initialize_tpu_system(res)
     tpu_name = get_tpu_name(res)
     topology_cache.update({tpu_name: base64.b64encode(tpu_topology.serialized()).decode('utf8')})
