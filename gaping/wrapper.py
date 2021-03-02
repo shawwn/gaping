@@ -302,6 +302,8 @@ def create_session_config():
     rewrite_options=rewriter_config,
     place_pruned_graph=True,
     infer_shapes=True,
+    # cut bandwidth in half, at the expense of precision
+    enable_bfloat16_sendrecv=True,
     )
   session_config = config_pb2.ConfigProto(
     graph_options=graph_options,
