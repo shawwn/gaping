@@ -112,6 +112,22 @@ class CriticalSectionTest(parameterized.TestCase, test_utils.GapingTestCase):
         else:
           self.evaluate(run_concurrently)
 
+
+  def test_004_recursiveCriticalSectionAccessIsIllegalSameSharedName(self):
+    # This does not work properly in eager mode.  Eager users will
+    # just hit a deadlock if they do this.  But at least it'll be easier
+    # to debug.
+    cs = critical_section_ops.CriticalSection(shared_name="cs")
+    cs_same = critical_section_ops.CriticalSection(shared_name="cs")
+    add = lambda x: x + 1
+    def fn(x):
+      return cs_same.execute(lambda: add(x))
+
+    with self.assertRaisesRegex(
+        ValueError, r"attempts to directly access the CriticalSection in which"):
+      cs.execute(lambda: fn(1.0))
+
+
 if __name__ == "__main__":
   import gaping.wrapper
   with gaping.wrapper.patch_tensorflow():
