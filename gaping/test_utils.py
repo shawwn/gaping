@@ -34,18 +34,12 @@ class GapingTestCase(tf.test.TestCase):
 
   @property
   def topology(self):
-    return _cached_tpu_topology
-
-  @topology.setter
-  def topology(self, value):
-    global _cached_tpu_topology
-    _cached_tpu_topology = value
+    return self.cached_session().driver.topology
 
   def cached_session(self, interactive=False):
     if self._cached_session is None:
       driver = gaping.driver.new(interactive=interactive)
       self._cached_session = driver.session
-      self.topology = getattr(driver, 'topology', None)
     return self._cached_session
 
   def evaluate(self, tensors, **kws):

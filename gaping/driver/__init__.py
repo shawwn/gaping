@@ -132,9 +132,13 @@ class TPUDriver(CreateSessionDriver):
     tf.logging.info('%s', cluster_def)
     config = wrapper.make_session_config(cluster_spec=cluster_spec)
     super().__init__(target=target, graph=graph, config=config, interactive=interactive)
-    if topology is None:
-      topology = get_tpu_topology(session=self.session)
-    self.topology = topology
+    self._topology = None
+
+  @property
+  def topology(self):
+    if self._topology is None:
+      self._topology = get_tpu_topology(session=self.session)
+    return self._topology
 
   def device_assignment(self, cores=None):
     if cores is not None:
