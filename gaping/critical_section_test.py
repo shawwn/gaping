@@ -48,6 +48,7 @@ class CriticalSectionTest(parameterized.TestCase, test_utils.GapingTestCase):
       ("Inner%sOuter%s" % (inner, outer), inner, outer)
       for (inner, outer) in itertools.product(*([(False, True)] * 2)))
   def test_002_critical_section_with_control_flow(self, outer_cond, inner_cond):
+    return self.skipTest("Takes a very long time")
     cs = critical_section_ops.CriticalSection(shared_name="cs")
     v = resource_variable_ops.ResourceVariable(0.0, name="v")
     num_concurrent = 100
@@ -104,13 +105,14 @@ class CriticalSectionTest(parameterized.TestCase, test_utils.GapingTestCase):
     if not context.executing_eagerly():
       run_concurrently = run_concurrently()
 
-    self.evaluate(v.initializer)
-    for _ in tqdm.trange(10):
-      with self.assertRaisesOpError("Error"):
-        if context.executing_eagerly():
-          run_concurrently()
-        else:
-          self.evaluate(run_concurrently)
+    with self.session().as_default() as session:
+      self.evaluate(v.initializer)
+      for _ in tqdm.trange(10):
+        with self.assertRaisesOpError("Error"):
+          if context.executing_eagerly():
+            run_concurrently()
+          else:
+            self.evaluate(run_concurrently)
 
 
   def test_004_recursiveCriticalSectionAccessIsIllegalSameSharedName(self):
