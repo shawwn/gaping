@@ -18,6 +18,9 @@ from tensorflow.python.ops import resource_variable_ops
 from tensorflow.python.eager import context
 from tensorflow.python.eager import def_function
 
+from tensorflow.python.data.experimental.ops import prefetching_ops
+from tensorflow.python.data.ops import dataset_ops
+
 
 class CriticalSectionTest(parameterized.TestCase, test_utils.GapingTestCase):
 
@@ -105,14 +108,13 @@ class CriticalSectionTest(parameterized.TestCase, test_utils.GapingTestCase):
     if not context.executing_eagerly():
       run_concurrently = run_concurrently()
 
-    with self.session().as_default() as session:
-      self.evaluate(v.initializer)
-      for _ in tqdm.trange(10):
-        with self.assertRaisesOpError("Error"):
-          if context.executing_eagerly():
-            run_concurrently()
-          else:
-            self.evaluate(run_concurrently)
+    self.evaluate(v.initializer)
+    for _ in tqdm.trange(10):
+      with self.assertRaisesOpError("Error"):
+        if context.executing_eagerly():
+          run_concurrently()
+        else:
+          self.evaluate(run_concurrently)
 
 
   def test_004_recursiveCriticalSectionAccessIsIllegalSameSharedName(self):
@@ -129,6 +131,30 @@ class CriticalSectionTest(parameterized.TestCase, test_utils.GapingTestCase):
         ValueError, r"attempts to directly access the CriticalSection in which"):
       cs.execute(lambda: fn(1.0))
 
+
+  def test_005_insideFunction(self):
+    cs = critical_section_ops.CriticalSection()
+    with tf.device("/device:TPU:0" if self.is_tpu_available() else "/device:CPU:0"):
+      v = resource_variable_ops.ResourceVariable(1, name="test_000_insideFunction_v")
+    def fn():
+      return v.read_value()
+
+    # map() creates a TensorFlow function.
+    ds = dataset_ops.Dataset.range(1)
+    if self.is_tpu_available():
+      ds = (ds.apply(prefetching_ops.copy_to_device("/device:TPU:0"))
+            .map(lambda _: cs.execute(fn)))
+    else:
+      ds = ds.map(lambda _: cs.execute(fn))
+
+    def get_first():
+      if context.executing_eagerly():
+        return self.evaluate(dataset_ops.make_one_shot_iterator(ds).get_next())
+      itr = dataset_ops.make_initializable_iterator(ds)
+      self.evaluate([v.initializer, itr.initializer])
+      return self.evaluate(itr.get_next())
+
+    self.assertEqual(1, get_first())
 
 if __name__ == "__main__":
   import gaping.wrapper

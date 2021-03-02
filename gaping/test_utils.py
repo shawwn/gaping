@@ -57,8 +57,9 @@ class GapingTestCase(tf.test.TestCase):
     else:
       sess = ops.get_default_session()
       if sess is None:
-        with self.session() as sess:
-          return sess.run(tensors, **kws)
+        # with self.session() as sess:
+        #   return sess.run(tensors, **kws)
+        return self.cached_session().run(tensors, **kws)
       else:
         return sess.run(tensors, **kws)
 
@@ -74,5 +75,10 @@ class GapingTestCase(tf.test.TestCase):
     # Create the cached session.
     self.cached_session()
     # Clear the gin cofiguration.
-    gin.clear_config()
+
+  def is_tpu_available(self):
+    devices = self.cached_session().list_devices()
+    for device in devices:
+      self.log(device)
+    return any([':TPU:' in device.name for device in devices])
 
