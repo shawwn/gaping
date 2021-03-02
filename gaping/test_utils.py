@@ -57,9 +57,12 @@ class GapingTestCase(tf.test.TestCase):
     else:
       sess = ops.get_default_session()
       if sess is None:
-        # with self.session() as sess:
-        #   return sess.run(tensors, **kws)
-        return self.cached_session().run(tensors, **kws)
+        graph = ops.get_default_graph()
+        if graph == self.cached_session().graph:
+          return self.cached_session().run(tensors, **kws)
+        else:
+          with self.session() as sess:
+            return sess.run(tensors, **kws)
       else:
         return sess.run(tensors, **kws)
 

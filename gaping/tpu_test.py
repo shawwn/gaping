@@ -33,6 +33,7 @@ class TpuTest(parameterized.TestCase, test_utils.GapingTestCase):
       for device in devices:
         self.log(device)
       self.assertTrue(any([':TPU:' in device.name for device in devices]))
+    self.assertTrue(self.is_tpu_available())
 
   def test_002_tpu_graph(self):
     with tf.Graph().as_default(), self.session().as_default() as session:
