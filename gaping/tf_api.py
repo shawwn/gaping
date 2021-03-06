@@ -10,7 +10,36 @@ from tensorflow.python.framework import ops
 
 import weakref
 import inspect
+import contextlib
 
+@contextlib.contextmanager
+def dep(x):
+  with tf.control_dependencies([x]):
+    yield
+
+def verify(condition, msg, *args):
+  if callable(condition):
+    condition = condition(*args)
+  return tf.debugging.Assert(condition, [tf_format(msg, *args)])
+
+def check(condition, msg, *args):
+  with dep(verify(condition, msg, *args)):
+    result = tf.nest.map_structure(tf.identity, args)
+    if isinstance(result, tuple) and len(result) == 1:
+      result = result[0]
+    return result
+
+def set_batch_size(tensor, batch_size):
+  if len(tensor.shape) > 0 and tensor.shape.as_list()[0] is None:
+    shape = [None] * len(tensor.shape)
+    shape[0] = batch_size
+    tensor.set_shape(tensor.shape.merge_with(shape))
+  return tensor
+
+def map_structure(fn, *args):
+  if len(args) == 1:
+    args = args[0]
+  return tf.nest.map_structure(fn, args)
 
 def refv(name, **kws):
   shared_name = name.rsplit(':',1)[0]
@@ -359,7 +388,21 @@ def tf_array_extend(ta, *args, start=None, count=None):
     ta = tf_array_scatter(ta, indices=indices, value=value)
   return ta
 
+def tf_format(msg, *args, placeholder='{}', summarize=3, **kws):
+  if placeholder not in msg:
+    msg = msg + (': [' + ', '.join(['{}' for _ in range(len(args))]) + ']')
+  return tf.strings.format(msg, args, summarize=summarize, **kws)
+
+def tf_re_match(input, pattern, **kws):
+  return tf.strings.regex_full_match(input, pattern, **kws)
+
+def tf_re_sub(input, pattern, rewrite, replace_global=True, **kws):
+  return tf.strings.regex_replace(input, pattern, rewrite, replace_global=replace_global, **kws)
+
 def tf_string_split(input, delimiter='\n', return_all=False):
+  input = tf.convert_to_tensor(input)
+  if len(input.shape) == 0:
+    input = tf.reshape(input, [1])
   indices, results, shape = tf.raw_ops.StringSplit(input=input, delimiter=delimiter)
   if return_all:
     return indices, results, shape
@@ -370,6 +413,44 @@ def tf_string_splits(input, delimiters=[' ', '\n']):
   for delim in delimiters:
     input = tf_string_split(input, delim)
   return input
+
+def tf_decode_base64(input):
+  # Input may or may not have padding at the end. See EncodeBase64 for
+  # padding. Web-safe means that input must use - and _ instead of +
+  # and /.
+  input = tf.strings.regex_replace(input, '[+]', '-')
+  input = tf.strings.regex_replace(input, '[/]', '_')
+  input = tf.io.decode_base64(input)
+  return input
+
+
+def tf_io_encode_raw(tokens, dtype=None):
+  if getattr(tokens, 'dtype', None) == tf.string:
+    return tokens
+  if dtype is not None:
+    tokens = tf.cast(tokens, dtype)
+  unit_size = tokens.dtype.size
+  total_size = tf.size(tokens, out_type=tf.int64) * unit_size
+  serialized = tf.serialize_tensor(tokens)
+  serialized_size = tf.size(tf.strings.bytes_split(serialized), out_type=tf.int64)
+  offset = serialized_size - total_size
+  return tf.strings.substr(serialized, offset, -1)
+
+def tf_farmhashes64(items, **kws):
+  out = tf.fingerprint(items, **kws)
+  out = tf.bitcast(out, tf.int64)
+  out = tf.reshape(out, [-1])
+  return out
+
+def tf_farmhash64(item, **kws):
+  return tf_farmhashes64(tf.expand_dims(item, 0), **kws)[0]
+
+def tf_parse_int(string, dtype, **kws):
+  return tf.strings.to_number(string, out_type=dtype, **kws)
+
+tf_parse_i64 = functools.partial(tf_parse_int, dtype=tf.int64)
+tf_parse_i32 = functools.partial(tf_parse_int, dtype=tf.int32)
+
 
 def tf_array_fn_needs_index(f):
   sig = inspect.signature(f)
