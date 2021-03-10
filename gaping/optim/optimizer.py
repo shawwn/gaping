@@ -184,17 +184,49 @@ class Optimizer(object):
                 (in one case it does the step with a gradient of 0 and in the other it skips
                 the step altogether).
         """
+        if set_to_none:
+            raise NotImplementedError()
+        gather = nn.Identity()
+        with gather.scope():
+            for group in self.param_groups:
+                for p in group['params']:
+                    p_grad = grad_slot(p)
+                    nn.zero_(p_grad)
+                    # if p.grad is not None:
+                    #     if set_to_none:
+                    #         p.grad = None
+                    #     else:
+                    #         if p.grad.grad_fn is not None:
+                    #             p.grad.detach_()
+                    #         else:
+                    #             p.grad.requires_grad_(False)
+                    #         p.grad.zero_()
+        return gather.initializer
+
+    @property
+    def var_list(self):
+        vs = []
         for group in self.param_groups:
             for p in group['params']:
-                if p.grad is not None:
-                    if set_to_none:
-                        p.grad = None
-                    else:
-                        if p.grad.grad_fn is not None:
-                            p.grad.detach_()
-                        else:
-                            p.grad.requires_grad_(False)
-                        p.grad.zero_()
+                vs.append(p)
+        return vs
+
+    @property
+    def grad_list(self):
+        return grad_slots(self.var_list)
+
+    def backward(self, loss, read_value=True):
+        if callable(loss):
+            loss = loss()
+        xs = self.var_list
+        gs = self.grad_list
+        assert len(gs) == len(xs)
+        g = tf.gradients(loss, xs)
+        out = []
+        for grad, var in zip(g, gs):
+            if grad is not None:
+                 out.append(var.assign(var.initialized_value() + grad, read_value=read_value))
+        return out
 
     def step(self, closure):
         r"""Performs a single optimization step (parameter update).
@@ -260,6 +292,129 @@ class Optimizer(object):
 
         self.param_groups.append(param_group)
 
+class SGD(Optimizer):
+    r"""Implements stochastic gradient descent (optionally with momentum).
+
+    Nesterov momentum is based on the formula from
+    `On the importance of initialization and momentum in deep learning`__.
+
+    Args:
+        params (iterable): iterable of parameters to optimize or dicts defining
+            parameter groups
+        lr (float): learning rate
+        momentum (float, optional): momentum factor (default: 0)
+        weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
+        dampening (float, optional): dampening for momentum (default: 0)
+        nesterov (bool, optional): enables Nesterov momentum (default: False)
+
+    Example:
+        >>> optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
+        >>> optimizer.zero_grad()
+        >>> loss_fn(model(input), target).backward()
+        >>> optimizer.step()
+
+    __ http://www.cs.toronto.edu/%7Ehinton/absps/momentum.pdf
+
+    .. note::
+        The implementation of SGD with Momentum/Nesterov subtly differs from
+        Sutskever et. al. and implementations in some other frameworks.
+
+        Considering the specific case of Momentum, the update can be written as
+
+        .. math::
+            \begin{aligned}
+                v_{t+1} & = \mu * v_{t} + g_{t+1}, \\
+                p_{t+1} & = p_{t} - \text{lr} * v_{t+1},
+            \end{aligned}
+
+        where :math:`p`, :math:`g`, :math:`v` and :math:`\mu` denote the 
+        parameters, gradient, velocity, and momentum respectively.
+
+        This is in contrast to Sutskever et. al. and
+        other frameworks which employ an update of the form
+
+        .. math::
+            \begin{aligned}
+                v_{t+1} & = \mu * v_{t} + \text{lr} * g_{t+1}, \\
+                p_{t+1} & = p_{t} - v_{t+1}.
+            \end{aligned}
+
+        The Nesterov version is analogously modified.
+    """
+
+    def __init__(self, params, lr=required, momentum=0, dampening=0,
+                 weight_decay=0, nesterov=False):
+        if lr is not required and lr < 0.0:
+            raise ValueError("Invalid learning rate: {}".format(lr))
+        if momentum < 0.0:
+            raise ValueError("Invalid momentum value: {}".format(momentum))
+        if weight_decay < 0.0:
+            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+
+        defaults = dict(lr=lr, momentum=momentum, dampening=dampening,
+                        weight_decay=weight_decay, nesterov=nesterov)
+        if nesterov and (momentum <= 0 or dampening != 0):
+            raise ValueError("Nesterov momentum requires a momentum and zero dampening")
+        super(SGD, self).__init__(params, defaults)
+
+    def __setstate__(self, state):
+        super(SGD, self).__setstate__(state)
+        for group in self.param_groups:
+            group.setdefault('nesterov', False)
+
+    # @torch.no_grad()
+    def step(self, closure=None, read_value=True):
+        """Performs a single optimization step.
+
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        loss = None
+        if closure is not None:
+            raise NotImplementedError()
+            # with torch.enable_grad():
+            #     loss = closure()
+
+        out = []
+
+        for group in self.param_groups:
+            weight_decay = group['weight_decay']
+            momentum = group['momentum']
+            dampening = group['dampening']
+            nesterov = group['nesterov']
+
+            for p in group['params']:
+                d_p = grad_slot(p)
+                if d_p is None:
+                    continue
+                if weight_decay != 0:
+                    d_p = nn.add(d_p, p, alpha=weight_decay)
+                if momentum != 0:
+                    raise NotImplementedError()
+                    # param_state = self.state[p]
+                    # if 'momentum_buffer' not in param_state:
+                    #     buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
+                    # else:
+                    #     buf = param_state['momentum_buffer']
+                    #     buf.mul_(momentum).add_(d_p, alpha=1 - dampening)
+                    # if nesterov:
+                    #     d_p = d_p.add(buf, alpha=momentum)
+                    # else:
+                    #     d_p = buf
+
+                op = nn.add_(p, d_p, alpha=-group['lr'])
+                with tf.control_dependencies([op]):
+                  p_grad = grad_slot(p)
+                  op = p_grad.assign(tf.zeros_like(p_grad), read_value=False)
+                if read_value:
+                  with tf.control_dependencies([op]):
+                    out.append(p.read_value())
+                else:
+                  out.append(op)
+        return out
+
+
 
 class Adam(Optimizer):
     r"""Implements Adam algorithm with multi tensor APIs.
@@ -310,3 +465,24 @@ class Adam(Optimizer):
         for group in self.param_groups:
             group.setdefault('amsgrad', False)
 
+
+from tensorflow.python.training import slot_creator
+
+def create_slot(primary, slot_name, val=None, shape=None, dtype=None, validate_shape=False):
+  with nn.absolute_variable_scope('', reuse=tf.AUTO_REUSE):
+    slot_name = primary.name.rsplit(':', 1)[0] + '__{}_slot'.format(slot_name)
+    if dtype is None:
+      dtype = primary.dtype
+    if shape is None:
+      shape = primary.shape
+    if val is None:
+      val = tf.zeros(shape, dtype=dtype)
+    else:
+      val = tf.convert_to_tensor(val, dtype)
+    return slot_creator._create_slot_var( primary, val, slot_name, validate_shape, shape, dtype )
+
+def grad_slot(primary):
+  return create_slot(primary, 'grad', dtype=tf.float32)
+
+def grad_slots(variables):
+  return tf.nest.map_structure(grad_slot, variables)
