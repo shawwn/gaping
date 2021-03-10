@@ -2669,6 +2669,13 @@ def normal_(tensor, mean, std):
   init_(tensor, value)
 
 
+def truncated_normal_(tensor, mean, std):
+  # need to create value in a lambda due to creating variables in while
+  # loops on tensorflow
+  value = lambda: tf.random.truncated_normal(shape=tensor.shape, mean=mean, stddev=std)
+  init_(tensor, value)
+
+
 def _calculate_fan_in_and_fan_out(tensor):
     dimensions = dim(tensor)
     if dimensions < 2:
@@ -3194,20 +3201,26 @@ def interpolate(input, size=None, scale_factor=None, mode='nearest', align_corne
       scale_factor //= 2
   else:
     method = _image_modes[mode]
+    import pdb; pdb.set_trace()
     output = tf.image.resize(input, size=size, method=method, name=name)
   if data_format == "NCHW":
     output = permute(output, 0,3,1,2)
   return output
 
 
-def pool(input, kernel_size, stride=None, pooling_type="AVG", padding="SAME", name=None):
+def pool(input, kernel_size, stride=None, pooling_type="AVG", padding="SAME", data_format="NCHW", name=None):
   kernel_size = _pair(kernel_size)
   strides = _pair(kernel_size if stride is None else stride)
   padding = padding or "SAME"
-  return tf.nn.pool(input, kernel_size, pooling_type, padding, strides=strides, name=name)
+  if data_format == "NCHW":
+    input = permute(input, 0,2,3,1)
+  output = tf.nn.pool(input, kernel_size, pooling_type, padding, strides=strides, data_format="NHWC", name=name)
+  if data_format == "NCHW":
+    output = permute(output, 0,3,1,2)
+  return output
     
 
-upsample = interpolate
+upsample = partial(interpolate, scale_factor=2)
 downsample = partial(pool, kernel_size=2)
 
 
@@ -3515,7 +3528,12 @@ def avg_pool2d(input, kernel_size, stride=None, padding=0, data_format="NCHW", n
   else:
     padding = _pair(padding)
   print('avg_pool2d', padding)
-  return tf.nn.avg_pool2d(input, kernel_size, strides, padding, data_format, name=name)
+  if data_format == "NCHW":
+    input = permute(input, 0,2,3,1)
+  output = tf.nn.avg_pool2d(input, kernel_size, strides, padding, data_format="NHWC", name=name)
+  if data_format == "NCHW":
+    output = permute(output, 0,3,1,2)
+  return output
   #return tf.nn.pool(input, kernel_size, "AVG", "SAME", strides=strides, name=name)
 
 
@@ -4075,7 +4093,15 @@ def batch_norm(input, mean, variance, weight, bias, training, exponential_averag
   if rest:
     assert reduce(operator.eq, rest)
   shape[1] = -1
-  out = tf.nn.batch_normalization(input, view(mean, *shape), view(variance, *shape), offset=view(bias, *shape), scale=view(weight, *shape), variance_epsilon=variance_epsilon)
+  if mean is not None:
+    mean = view(mean, *shape)
+  if variance is not None:
+    variance = view(variance, *shape)
+  if bias is not None:
+    bias = view(bias, *shape)
+  if weight is not None:
+    weight = view(weight, *shape)
+  out = tf.nn.batch_normalization(input, mean, variance, offset=bias, scale=weight, variance_epsilon=variance_epsilon)
   # inv_var = tf.math.rsqrt(variance + variance_epsilon)
   # weight_v = 1.0 if weight is None else weight
   # bias_v = 0.0 if bias is None else bias
@@ -4309,8 +4335,8 @@ class BatchNorm3d(_BatchNorm):
 
 
 class Embedding(Module):
-  def __init__(self, num_embeddings, embedding_dim, max_norm=None, scope=None, **kwargs):
-    super().__init__(scope=scope, weight_name=None, **kwargs)
+  def __init__(self, num_embeddings, embedding_dim, max_norm=None, scope=None, weight_name=None, **kwargs):
+    super().__init__(scope=scope, **kwargs)
     self.num_embeddings = num_embeddings
     self.embedding_dim = embedding_dim
     self.max_norm = max_norm

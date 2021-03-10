@@ -1,7 +1,7 @@
-import tftorch as nn
+from . import tftorch as nn
 F = nn
 init = nn
-import tf_tools as tft
+from . import tf_tools as tft
 import math
 import tensorflow.compat.v1 as tf
 from functools import partial
@@ -130,26 +130,25 @@ class SelfAttention(nn.Module):
       self.g = SpectralNorm(nn.Conv2d(in_channels=in_dim, out_channels=in_dim // 2, kernel_size=1, bias=False, scope='g'))
       self.o_conv = SpectralNorm(nn.Conv2d(in_channels=in_dim // 2, out_channels=in_dim, kernel_size=1, bias=False, scope='o_conv'))
       self.gamma = self.globalvar('gamma', shape=[1])
+      nn.zeros_(self.gamma)
 
     self.softmax = nn.Softmax(dim=-1)
 
   def forward(self, x, y=None): # ignore y (class embedding)
     with self.scope():
-      m_batchsize, width, height, C = nn.size(x)
+      m_batchsize, C, width, height = nn.size(x)
       N = height * width
-
-      g = nn.view(self.pool(self.g(x)), m_batchsize, N // 4, -1)
 
       theta = self.theta(x)
       phi = self.phi(x)
       phi = self.pool(phi)
-      phi = nn.view(phi, m_batchsize, N // 4, -1)
-      theta = nn.view(theta, m_batchsize, N, -1)
-      attention = self.softmax(nn.bmm(theta, phi, transpose_b=True))
-      g0 = nn.bmm(attention, g)
-      attn_g = nn.view(g0, m_batchsize, width, height, -1)
+      phi = nn.view(phi, m_batchsize, -1, N // 4)
+      theta = nn.view(theta, m_batchsize, -1, N)
+      theta = nn.permute(theta, 0, 2, 1)
+      attention = self.softmax(nn.bmm(theta, phi))
+      g = nn.view(self.pool(self.g(x)), m_batchsize, -1, N // 4)
+      attn_g = nn.view(nn.bmm(g, nn.permute(attention, 0, 2, 1)), m_batchsize, -1, width, height)
       out = self.o_conv(attn_g)
-      
       out = self.gamma * out + x
       return out
 
@@ -189,12 +188,16 @@ class ConditionalBatchNorm2d(nn.Module):
 
   def forward(self, x, y):
     with self.scope():
-      scale = self.gamma_embed(y) + 1
-      offset = self.beta_embed(y)
-      #out = batchnorm(x, mean=self.bn.accumulated_mean, variance=self.bn.accumulated_var, scale=scale, offset=offset)
+      # scale = self.gamma_embed(y) + 1
+      # offset = self.beta_embed(y)
+      # #out = batchnorm(x, mean=self.bn.accumulated_mean, variance=self.bn.accumulated_var, scale=scale, offset=offset)
+      # out = self.bn(x)
+      # out *= scale
+      # out += offset
       out = self.bn(x)
-      out *= scale
-      out += offset
+      gamma = self.gamma_embed(y) + 1
+      beta = self.beta_embed(y)
+      out = nn.view(gamma, -1, self.num_features, 1, 1) * out + nn.view(beta, -1, self.num_features, 1, 1)
       return out
 
 
@@ -205,14 +208,17 @@ class ScaledCrossReplicaBN(nn.Module):
       self.num_features = num_features
       self.scale = self.globalvar(scale_name, shape=[1, 1, 1, self.num_features])
       self.offset = self.globalvar(offset_name, shape=[1, 1, 1, self.num_features])
+      nn.ones_(self.scale)
+      nn.zeros_(self.offset)
     self.bn = nn.BatchNorm2d(num_features, affine=False, eps=eps, momentum=momentum, scope=scope+bn_scope_suffix, **kwargs)
 
   def forward(self, input):
     with self.scope():
       #out = batchnorm(input, mean=self.bn.accumulated_mean, variance=self.bn.accumulated_var, scale=self.scale, offset=self.offset)
       out = self.bn(input)
-      out *= self.scale
-      out += self.offset
+      # out *= self.scale
+      # out += self.offset
+      out = nn.view(self.scale, -1, self.num_features, 1, 1) * out + nn.view(self.offset, -1, self.num_features, 1, 1)
       return out
 
 
@@ -348,6 +354,7 @@ class Generator256(nn.Module):
       with self.scope('G_Z'):
         out = self.G_linear(codes[0])
       out = nn.view(out, -1, 4, 4, self.first_view)
+      out = nn.permute(out, 0, 3, 1, 2)
       blocks = [block for block in self.blocks if isinstance(block, GBlock)]
       for i, (code, block) in enumerate(zip(codes[1:], blocks)):
         if i == self.blocks.sa_id:
@@ -413,8 +420,8 @@ class Discriminator256(nn.Module):
       out += self.pre_skip(F.avg_pool2d(input, 2))
       out = self.conv(out)
       out = F.relu(out)
-      out = nn.view(out, nn.size(out, 0), -1, nn.size(out, -1))
-      out = nn.sum(out, 1)
+      out = nn.view(out, nn.size(out, 0), nn.size(out, 1), -1)
+      out = nn.sum(out, 2)
       out = self.linear(out)
       out_linear = nn.squeeze(out, 1)
       embed = self.embed(class_id)
@@ -809,6 +816,9 @@ class SpectralNorm(nn.Module):
       self.u0 = self.module.localvar('u0', dtype=w.dtype, shape=ushape, initializer=tf.truncated_normal_initializer(mean=0.0, stddev=1.0), collections=['variables'])
       self.u1 = self.module.localvar('u1', dtype=w.dtype, shape=ushape, initializer=tf.truncated_normal_initializer(mean=0.0, stddev=1.0), collections=['variables'])
       self.u2 = self.module.localvar('u2', dtype=w.dtype, shape=ushape, initializer=tf.truncated_normal_initializer(mean=0.0, stddev=1.0), collections=['variables'])
+      nn.truncated_normal_(self.u0, mean=0.0, std=1.0)
+      nn.truncated_normal_(self.u1, mean=0.0, std=1.0)
+      nn.truncated_normal_(self.u2, mean=0.0, std=1.0)
       return w
 
   def _update(self):
