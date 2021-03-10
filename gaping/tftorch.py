@@ -3872,6 +3872,7 @@ def ones(*size, hint=None, **kwargs):
 def zeros_(tensor):
   init_(tensor, lambda: tf.zeros_like(tensor))
 
+zero_ = zeros_
 
 def ones_(tensor):
   init_(tensor, lambda: tf.ones_like(tensor))
@@ -5209,3 +5210,66 @@ def pad(input, pad, mode='constant', value=0):
   padding = list(zip(pad[0::2], pad[1::2]))[::-1]
   return tf.pad(input, padding, mode='CONSTANT', constant_values=value)
   
+
+def add(input, other, *, alpha=1):
+  if alpha == 1:
+    return input + other
+  else:
+    return input + other * alpha
+
+def add_(input, other, *, alpha=1, read_value=True):
+  if alpha == 1:
+    return input.assign_add(other, read_value=read_value)
+  else:
+    return input.assign_add(other * alpha, read_value=read_value)
+
+def sub(input, other, *, alpha=1):
+  if alpha == 1:
+    return input - other
+  else:
+    return input - other * alpha
+
+def sub_(input, other, *, alpha=1, read_value=True):
+  if alpha == 1:
+    return input.assign_sub(other, read_value=read_value)
+  else:
+    return input.assign_sub(other * alpha, read_value=read_value)
+
+def mul(input, other):
+  return input * other
+
+def mul_(input, other, *, read_value=True):
+  return input.assign(input * other, read_value=read_value)
+
+def div(input, other):
+  return input / other
+
+def div_(input, other, *, read_value=True):
+  return input.assign(input / other, read_value=read_value)
+
+def addcmul(input, tensor1, tensor2, *, value=1 ):
+  out = mul(tensor1, tensor2)
+  if value != 1:
+    out = out * value
+  return add(input, out)
+
+def addcmul_(input, tensor1, tensor2, *, value=1, read_value=True ):
+  out = mul(tensor1, tensor2)
+  if value != 1:
+    out = out * value
+  return add_(input, out, read_value=read_value)
+
+def addcdiv(input, tensor1, tensor2, *, value=1 ):
+  out = div(tensor1, tensor2)
+  if value != 1:
+    out = out * value
+  return add(input, out)
+
+def addcdiv_(input, tensor1, tensor2, *, value=1, read_value=True ):
+  out = div(tensor1, tensor2)
+  if value != 1:
+    out = out * value
+  return add_(input, out, read_value=read_value)
+
+def sqrt(input):
+  return tf.math.sqrt(input)
