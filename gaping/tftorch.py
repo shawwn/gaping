@@ -3208,10 +3208,15 @@ def interpolate(input, size=None, scale_factor=None, mode='nearest', align_corne
   return output
 
 
-def pool(input, kernel_size, stride=None, pooling_type="AVG", padding="SAME", data_format="NCHW", name=None):
+def pool(input, kernel_size, stride=None, pooling_type="AVG", padding=0, data_format="NCHW", name=None):
   kernel_size = _pair(kernel_size)
   strides = _pair(kernel_size if stride is None else stride)
-  padding = padding or "SAME"
+  if padding == 0:
+    padding = "VALID"
+  elif padding == 1:
+    padding = "SAME"
+  else:
+    padding = _pair(padding)
   if data_format == "NCHW":
     input = permute(input, 0,2,3,1)
   output = tf.nn.pool(input, kernel_size, pooling_type, padding, strides=strides, data_format="NHWC", name=name)
@@ -4059,7 +4064,8 @@ class _BatchNorm(_NormBase):
                         exponential_average_factor = 1.0 / tf.max(1.0, tf.cast(self.num_batches_tracked, tf.float32))
                     else:  # use exponential moving average
                         exponential_average_factor = self.momentum
-                    self.register_update('batchnorm_increment_num_batches_tracked', self.num_batches_tracked.assign_add(1, read_value=False))
+                    with tf.control_dependencies([self.num_batches_tracked.assign_add(1, read_value=False)]):
+                        exponential_average_factor = tf.identity(exponential_average_factor)
                           
 
             r"""
@@ -4084,7 +4090,94 @@ class _BatchNorm(_NormBase):
                 self.weight, self.bias, bn_training, exponential_average_factor, self.eps)
 
 
-def batch_norm(input, mean, variance, weight, bias, training, exponential_average_factor, variance_epsilon):
+def rsqrt(x, **kws):
+  return tf.math.rsqrt(x, **kws)
+
+
+# Fused batchnorm op
+def fused_bn(x, mean, var, gain=None, bias=None, eps=1e-5):
+  # Apply scale and shift--if gain and bias are provided, fuse them here
+  # Prepare scale
+  scale = rsqrt(var + eps)
+  # If a gain is provided, use it
+  if gain is not None:
+    scale = scale * gain
+  # Prepare shift
+  shift = mean * scale
+  # If bias is provided, use it
+  if bias is not None:
+    shift = shift - bias
+  return x * scale - shift
+  #return ((x - mean) / ((var + eps) ** 0.5)) * gain + bias # The unfused way.
+
+def nchw_axis(input):
+  data_format = "NCHW"
+  shape = [1] * dim(input)
+  # verify the shape is NCHW.
+  rest = size(input)[2:]
+  if rest:
+    assert reduce(operator.eq, rest)
+  axis = list(range(dim(input)))
+  axis.pop(1 if data_format == "NCHW" else -1)
+  return axis
+  
+def to_type(x, dtype):
+  return tf.convert_to_tensor(x, dtype)
+  
+def to_float(x):
+  return to_type(x, tf.float32)
+
+# Manual BN
+# Calculate means and variances using mean-of-squares minus mean-squared
+def manual_bn(x, gain=None, bias=None, return_mean_var=False, eps=1e-5):
+  # Cast x to float32 if necessary
+  float_x = to_float(x)
+  # Calculate expected value of x (m) and expected value of x**2 (m2)  
+  # Mean of x
+  axis = nchw_axis(x) # [0, 2, 3]
+  m = mean(float_x, axis, keepdim=True)
+  # Mean of x squared
+  m2 = mean(float_x ** 2, axis, keepdim=True)
+  # Calculate variance as mean of squared minus mean squared.
+  var = (m2 - m **2)
+  # Cast back to float 16 if necessary
+  var = to_type(var, x.dtype)
+  m = to_type(m, x.dtype)
+  # Return mean and variance for updating stored mean/var if requested  
+  if return_mean_var:
+    return fused_bn(x, m, var, gain, bias, eps), squeeze(m), squeeze(var)
+  else:
+    return fused_bn(x, m, var, gain, bias, eps)
+
+
+
+def batch_norm(input, mean, variance, weight, bias, training, exponential_average_factor, variance_epsilon, data_format="NCHW"):
+  # verify the shape is NCHW.
+  rest = size(input)[2:]
+  if rest:
+    assert reduce(operator.eq, rest)
+  shape = size(input)[0:2] + [1 for _ in range(len(size(input)[2:]))]
+  if weight is not None:
+    weight = view(weight, *shape)
+  if bias is not None:
+    bias = view(bias, *shape)
+  if True:
+    stored_mean = mean
+    stored_var = variance
+    if training:
+      out, mean, variance = manual_bn(input, gain=weight, bias=bias, return_mean_var=True, eps=variance_epsilon)
+      momentum = exponential_average_factor
+      with tf.control_dependencies([
+        stored_mean.assign(stored_mean * (1 - momentum) + mean * momentum, read_value=False),
+        stored_var.assign(stored_var * (1 - momentum) + variance * momentum, read_value=False),
+        ]):
+        return tf.identity(out)
+    else:
+      mean = view(stored_mean, *shape)
+      variance = view(stored_var, *shape)
+      return fused_bn(input, mean, variance, weight, bias, variance_epsilon)
+
+
   # TODO: exponential_average_factor
   #out = tf.nn.batch_normalization(input, mean, variance, offset=bias, scale=weight, variance_epsilon=variance_epsilon)
   shape = [1] * dim(input)
@@ -4093,6 +4186,14 @@ def batch_norm(input, mean, variance, weight, bias, training, exponential_averag
   if rest:
     assert reduce(operator.eq, rest)
   shape[1] = -1
+  if training and (mean is not None or variance is not None):
+    axis = list(range(len(input.shape.as_list())))
+    axis.pop(1 if data_format == "NCHW" else -1)
+    input_mean, input_variance = tf.nn.moments(input, axis)
+    if mean is not None:
+      mean = mean.assign(mean * (1 - exponential_average_factor) + input_mean * exponential_average_factor)
+    if variance is not None:
+      variance = variance.assign(variance * (1 - exponential_average_factor) + input_variance * exponential_average_factor)
   if mean is not None:
     mean = view(mean, *shape)
   if variance is not None:

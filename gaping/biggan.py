@@ -132,7 +132,7 @@ class SelfAttention(nn.Module):
       self.gamma = self.globalvar('gamma', shape=[1])
       nn.zeros_(self.gamma)
 
-    self.softmax = nn.Softmax(dim=-1)
+      self.softmax = nn.Softmax(dim=-1)
 
   def forward(self, x, y=None): # ignore y (class embedding)
     with self.scope():
@@ -204,13 +204,14 @@ class ConditionalBatchNorm2d(nn.Module):
 class ScaledCrossReplicaBN(nn.Module):
   def __init__(self, num_features, eps=1e-4, momentum=0.1, scope='ScaledCrossReplicaBN', bn_scope_suffix='bn', scale_name='gamma', offset_name='beta', **kwargs):
     super().__init__(scope=scope, **kwargs)
-    with self.scope():
-      self.num_features = num_features
-      self.scale = self.globalvar(scale_name, shape=[1, 1, 1, self.num_features])
-      self.offset = self.globalvar(offset_name, shape=[1, 1, 1, self.num_features])
-      nn.ones_(self.scale)
-      nn.zeros_(self.offset)
-    self.bn = nn.BatchNorm2d(num_features, affine=False, eps=eps, momentum=momentum, scope=scope+bn_scope_suffix, **kwargs)
+    if False:
+      with self.scope():
+        self.num_features = num_features
+        self.scale = self.globalvar(scale_name, shape=[1, 1, 1, self.num_features])
+        self.offset = self.globalvar(offset_name, shape=[1, 1, 1, self.num_features])
+        nn.ones_(self.scale)
+        nn.zeros_(self.offset)
+    self.bn = nn.BatchNorm2d(num_features, affine=True, eps=eps, momentum=momentum, scope=scope+bn_scope_suffix, **kwargs)
 
   def forward(self, input):
     with self.scope():
@@ -218,8 +219,9 @@ class ScaledCrossReplicaBN(nn.Module):
       out = self.bn(input)
       # out *= self.scale
       # out += self.offset
-      out = nn.view(self.scale, -1, self.num_features, 1, 1) * out + nn.view(self.offset, -1, self.num_features, 1, 1)
-      return out
+      if False:
+        out = nn.view(self.scale, -1, self.num_features, 1, 1) * out + nn.view(self.offset, -1, self.num_features, 1, 1)
+    return out
 
 
 class GBlock(nn.Module):
