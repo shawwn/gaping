@@ -797,7 +797,100 @@ assert_shape = nn.assert_shape
 shapelist = nn.shapelist
 
 
+def l2normalize(v, eps=1e-4):
+  return v / (nn.norm(v) + eps)
+
+
 class SpectralNorm(nn.Module):
+  def __init__(self, module, name='weight', power_iterations=1, epsilon=9.999999747378752e-05, scope=None, **kwargs):
+    super().__init__(scope=scope, **kwargs)
+    self.module = module
+    self.name = name
+    self.epsilon = epsilon
+    self.power_iterations = power_iterations
+    self._make_params()
+
+  def _made_params(self):
+    try:
+      getattr(self.module, self.name + "_u")
+      # getattr(self.module, self.name + "_v")
+      getattr(self.module, self.name + "_bar")
+      return True
+    except AttributeError:
+      return False
+
+  def _make_params(self):
+    with self.module.scope():
+      #w = getattr(self.module, self.name)
+      if hasattr(self, 'w'):
+        w = self.w
+      else:
+        w = getattr(self.module, self.name)
+        self.w = w
+      assert len(shapelist(w)) > 1
+      shape = shapelist(w)
+
+      height = nn.size(w, 0)
+      width = nn.size(nn.view(w, height, -1), 1)
+
+      ushape = [height]
+      self.u = self.module.localvar('u', dtype=w.dtype, shape=ushape)
+      nn.init_(self.u, lambda: l2normalize(nn.normal(ushape, 0, 1)))
+  
+  def _update(self):
+    u = self.u
+    w = self.w
+    shape = shapelist(w)
+
+    height = nn.size(w, 0)
+    _w = nn.view(w, height, -1)
+
+    if self.should_update():
+      assert nn.dim(u) == 1
+      u = tf.expand_dims(u, -1)
+      for _ in range(self.power_iterations):
+        v = l2normalize(nn.matmul(nn.t(_w), u), eps=self.epsilon)
+        u = l2normalize(nn.matmul(_w, v), eps=self.epsilon)
+      v = nn.squeeze(v, -1)
+      u = nn.squeeze(u, -1)
+
+      u = tf.stop_gradient(u)
+      v = tf.stop_gradient(v)
+
+      with tf.control_dependencies([self.u.assign(u, read_value=False)]):
+        u = tf.identity(u)
+
+    #sigma = u.dot((_w).mv(v))
+    sigma = nn.dot(u, nn.mv(_w, v))
+
+    #setattr(self.module, self.name, w / sigma.expand_as(w))
+    w_normalized = nn.div(w, sigma)
+    w_normalized = tf.reshape(w_normalized, shape)
+    delattr(self.module, self.name)
+    setattr(self.module, self.name, w_normalized)
+
+  def forward(self, *args):
+    with self.module.scope():
+      self._update()
+    return self.module.forward(*args)
+
+  
+
+
+class SpectralNorm_Passthru(nn.Module):
+  def __init__(self, module, name='weight', epsilon=9.999999747378752e-05, scope=None, **kwargs):
+    super().__init__(scope=scope, **kwargs)
+    self.module = module
+    self.name = name
+    self.epsilon = epsilon
+  
+  def forward(self, *args):
+    #import pdb; pdb.set_trace()
+    # with self.module.scope():
+    #   self._update()
+    return self.module.forward(*args)
+
+class SpectralNorm_Old(nn.Module):
   def __init__(self, module, name='weight', epsilon=9.999999747378752e-05, scope=None, **kwargs):
     super().__init__(scope=scope, **kwargs)
     self.module = module
@@ -813,6 +906,7 @@ class SpectralNorm(nn.Module):
       self.w = w
     assert len(shapelist(w)) > 1
     shape = shapelist(w)
+    raise NotImplementedError("We need to handle NCHW!")
     ushape = [1, shape[-1]]
     with self.module.scope():
       self.u0 = self.module.localvar('u0', dtype=w.dtype, shape=ushape, initializer=tf.truncated_normal_initializer(mean=0.0, stddev=1.0), collections=['variables'])
