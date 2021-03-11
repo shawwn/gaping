@@ -2662,10 +2662,15 @@ def uniform_(tensor, minval, maxval):
   init_(tensor, value)
 
 
-def normal_(tensor, mean, std):
+def normal(shape, mean, std, dtype=None):
+  if dtype is None:
+    dtype = tf.float32
+  return tf.random.normal(shape=shape, mean=mean, stddev=std, dtype=dtype)
+
+def normal_(tensor, mean, std, dtype=None):
   # need to create value in a lambda due to creating variables in while
   # loops on tensorflow
-  value = lambda: tf.random.normal(shape=tensor.shape, mean=mean, stddev=std)
+  value = lambda: normal(shape=tensor.shape, mean=mean, stddev=std, dtype=dtype)
   init_(tensor, value)
 
 
@@ -4157,7 +4162,7 @@ def batch_norm(input, mean, variance, weight, bias, training, exponential_averag
   rest = size(input)[2:]
   if rest:
     assert reduce(operator.eq, rest)
-  shape = size(input)[0:2] + [1 for _ in range(len(size(input)[2:]))]
+  shape = [1] + size(input)[1:2] + [1 for _ in range(len(size(input)[2:]))]
   if weight is not None:
     weight = view(weight, *shape)
   if bias is not None:
@@ -5273,3 +5278,20 @@ def addcdiv_(input, tensor1, tensor2, *, value=1, read_value=True ):
 
 def sqrt(input):
   return tf.math.sqrt(input)
+
+def norm(input):
+  return tf.norm(input)
+
+def mv(matrix, vector):
+  return tf.linalg.matvec(matrix, vector)
+
+def dot(a, b):
+  # axes = list(range(dim(a)))
+  # if len(axes) == 1:
+  #   axes = axes[0]
+  # return tf.tensordot(a, b, axes=axes)
+  # #return tf.einsum('i,i->', a, b)
+  assert dim(a) == 1
+  assert dim(b) == 1
+  return sum(mul(a, b))
+
