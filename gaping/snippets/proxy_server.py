@@ -6,13 +6,13 @@ import socket
 import threading
 import traceback
 import time
+import sys
 
 
 # Changing the buffer_size and delay, you can improve the speed and bandwidth.
 # But when buffer get to high or delay go too down, you can broke things
-buffer_size = 16
+buffer_size = 128*4096
 delay = 0.0001
-forward_to = ('smtp.zaz.ufsk.br', 25)
 
 class Forward:
     def __init__(self):
@@ -59,10 +59,26 @@ class ProxyServer(threading.Thread):
     self.server.listen(200) # become a server socket
     self.channel = {}
     self.input_list = set()
+    self.clients = set()
     self.done = False
+    self.prompt = None
 
-  def shutdown(self):
+  def is_quiet(self):
+    return bool(int(os.environ.get('QUIET', '0')))
+
+  def write(self, data):
+    if isinstance(data, str):
+      sys.stdout.write(data)
+    else:
+      sys.stdout.buffer.write(data)
+
+  def flush(self):
+    sys.stdout.buffer.flush()
+
+  def shutdown(self, *args):
     self.done = True
+    self.server.close()
+    sys.exit(0)
 
   def run(self):
       self.input_list.add(self.server)
@@ -89,6 +105,7 @@ class ProxyServer(threading.Thread):
           print(clientaddr, "has connected")
           self.input_list.add(clientsock)
           self.input_list.add(forward)
+          self.clients.add(clientsock)
           self.channel[clientsock] = forward
           self.channel[forward] = clientsock
       else:
@@ -101,6 +118,10 @@ class ProxyServer(threading.Thread):
       #remove objects from input_list
       self.input_list.remove(self.s)
       self.input_list.remove(self.channel[self.s])
+      if self.s in self.clients:
+        self.clients.remove(self.s)
+      if self.channel[self.s] in self.clients:
+        self.clients.remove(self.channel[self.s])
       out = self.channel[self.s]
       # close the connection with client
       self.channel[out].close()  # equivalent to do self.s.close()
@@ -112,8 +133,21 @@ class ProxyServer(threading.Thread):
 
   def on_recv(self):
       data = self.data
+      if self.s in self.clients:
+        prompt = b'>>>'
+      else:
+        prompt = b'---<<<'
+      if prompt != self.prompt:
+        self.write(b'\n'+prompt)
+        self.flush()
+        self.prompt = prompt
       # here we can parse and/or modify the data before send forward
-      print(data)
+      #print(data)
+      if self.is_quiet():
+        self.write('{} bytes\n'.format(len(data)))
+      else:
+        self.write(data)
+      #sys.stdout.buffer.flush()
       self.channel[self.s].send(data)
     
 
