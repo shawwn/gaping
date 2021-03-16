@@ -1,0 +1,4 @@
+include './common.gin'
+
+options.foo = 42
+

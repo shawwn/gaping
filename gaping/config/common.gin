@@ -1,0 +1,10 @@
+options.code = """
+from . import wrapper
+from . import driver as driver_lib
+
+wrapper.dotenv_startup()
+
+driver = driver_lib.new(interactive=True)
+
+print('Hello from common.gin!')
+"""

@@ -190,3 +190,57 @@ def edit(obj):
   #os.spawnl(os.P_NOWAIT, editor, filename)
   os.system(editor + ' ' + shellquote(filename) + ' &')
 
+
+
+from argparse import ArgumentParser
+
+def prepare_parser():
+  usage = 'Parser for all scripts.'
+  parser = ArgumentParser(description=usage)
+
+  parser.add_argument(
+    '--gin_config', type=str, nargs='+',
+    help='List of paths to the config files.')
+
+  parser.add_argument(
+    '--gin_bindings', type=str, nargs='+',
+    help='Newline separated list of Gin parameter bindings.')
+  
+  return parser
+  
+
+import gin
+import gin.tf.external_configurables
+import tensorflow as tf
+
+from . import parameters
+import os
+
+_locals = locals()
+
+def run_code(source, filename, globals, locals, mode='exec'):
+  code = compile(source, filename, mode)
+  exec(code, globals, locals)
+
+
+def run_app(parser, main):
+  config = EasyDict(vars(parser.parse_args()))
+  print(config)
+
+  config.gin_config = config.gin_config or []
+  config.gin_bindings = config.gin_bindings or []
+
+  for filename in config.gin_config:
+    gin.add_config_file_search_path(os.path.dirname(filename))
+
+  gin.parse_config_files_and_bindings(config.gin_config, config.gin_bindings)
+
+  unlock = gin.unlock_config()
+  unlock.__enter__()
+
+  global opts
+  opts = parameters.options()
+  opts.config = config
+
+  return main(opts)
+  
