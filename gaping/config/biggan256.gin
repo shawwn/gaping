@@ -4,9 +4,10 @@ options.batch_size = 256
 options.num_G_accumulations = 8
 options.num_D_accumulations = 8
 options.num_D_steps = 1
-options.num_D_steps = 1
-options.G_lr = 1e-4
-options.D_lr = 4e-4
+#options.G_lr = 1e-4
+#options.D_lr = 4e-4
+options.G_lr = 2e-3
+options.D_lr = 8e-3
 options.D_B2 = 0.999
 options.G_B2 = 0.999
 options.G_attn = 64
@@ -48,10 +49,10 @@ def parse(features):
 dataset = celeb.features.map(parse)
 dataset = celeb.batch(dataset, options.batch_size)
 
-it = dataset.make_initializable_iterator()
-print('Initializing dataset...')
-it.initializer.run()
+# it = dataset.make_initializable_iterator()
+# print('Initializing dataset...')
+# it.initializer.run()
 
-nxt = EasyDict(it.get_next())
+# nxt = EasyDict(it.get_next())
 
 """

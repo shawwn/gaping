@@ -122,13 +122,13 @@ class SelfAttention(nn.Module):
       self.channel_in = in_dim
       self.activation = activation
 
-      self.theta = SpectralNorm(nn.Conv2d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1, bias=False, scope='theta'))
-      self.phi = SpectralNorm(nn.Conv2d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1, bias=False, scope='phi'))
+      self.theta = SNConv2d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1, bias=False, scope='theta')
+      self.phi = SNConv2d(in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1, bias=False, scope='phi')
       self.pool = nn.MaxPool2d(2, 2)
       #self.pool = partial(tf.layers.max_pooling2d, pool_size=[2, 2], strides=2)
       
-      self.g = SpectralNorm(nn.Conv2d(in_channels=in_dim, out_channels=in_dim // 2, kernel_size=1, bias=False, scope='g'))
-      self.o_conv = SpectralNorm(nn.Conv2d(in_channels=in_dim // 2, out_channels=in_dim, kernel_size=1, bias=False, scope='o_conv'))
+      self.g = SNConv2d(in_channels=in_dim, out_channels=in_dim // 2, kernel_size=1, bias=False, scope='g')
+      self.o_conv = SNConv2d(in_channels=in_dim // 2, out_channels=in_dim, kernel_size=1, bias=False, scope='o_conv')
       self.gamma = self.globalvar('gamma', shape=[1])
       nn.zeros_(self.gamma)
 
@@ -182,8 +182,8 @@ class ConditionalBatchNorm2d(nn.Module):
     with self.scope():
       self.num_features = num_features
       self.num_classes = num_classes
-      self.gamma_embed = SpectralNorm(nn.Linear(num_classes, num_features, bias=False, scope=gamma_scope))
-      self.beta_embed = SpectralNorm(nn.Linear(num_classes, num_features, bias=False, scope=beta_scope))
+      self.gamma_embed = SNLinear(num_classes, num_features, bias=False, scope=gamma_scope)
+      self.beta_embed = SNLinear(num_classes, num_features, bias=False, scope=beta_scope)
     self.bn = nn.BatchNorm2d(num_features, affine=False, eps=eps, momentum=momentum, scope=bn_scope, **kwargs)
 
   def forward(self, x, y):
@@ -244,18 +244,14 @@ class GBlock(nn.Module):
     with self.scope():
       if bn:
         self.HyperBN = ConditionalBatchNorm2d(in_channel, z_dim, index=0)
-      self.conv0 = SpectralNorm(
-        nn.Conv2d(in_channel, out_channel, kernel_size, stride, padding, bias=True if bn else True, scope='conv0')
-      )
+      self.conv0 = SNConv2d(in_channel, out_channel, kernel_size, stride, padding, bias=True if bn else True, scope='conv0')
       if bn:
         self.HyperBN_1 = ConditionalBatchNorm2d(out_channel, z_dim, index=1)
-      self.conv1 = SpectralNorm(
-        nn.Conv2d(out_channel, out_channel, kernel_size, stride, padding, bias=True if bn else True, scope='conv1')
-      )
+      self.conv1 = SNConv2d(out_channel, out_channel, kernel_size, stride, padding, bias=True if bn else True, scope='conv1')
 
       self.skip_proj = False
       if in_channel != out_channel or upsample or downsample:
-        self.conv_sc = SpectralNorm(nn.Conv2d(in_channel, out_channel, 1, 1, 0, scope='conv_sc'))
+        self.conv_sc = SNConv2d(in_channel, out_channel, 1, 1, 0, scope='conv_sc')
         self.skip_proj = True
       
       self.upsample = upsample
@@ -329,7 +325,7 @@ class Generator256(nn.Module):
       self.first_view = 16 * chn
 
       with self.scope('G_Z'):
-        self.G_linear = SpectralNorm(nn.Linear(20, 4 * 4 * 16 * chn, scope="G_linear"))
+        self.G_linear = SNLinear(20, 4 * 4 * 16 * chn, scope="G_linear")
 
       self.blocks = nn.ModuleList()
       self.blocks += [GBlock(16 * chn, 16 * chn, n_class=n_class, index=0)]
@@ -345,7 +341,7 @@ class Generator256(nn.Module):
       self.num_split = len(self.blocks)
 
       self.ScaledCrossReplicaBN = ScaledCrossReplicaBN(1 * chn, eps=1e-4)
-      self.colorize = SpectralNorm(nn.Conv2d(1 * chn, 3, [3, 3], padding=1, scope='conv_2d'))
+      self.colorize = SNConv2d(1 * chn, 3, [3, 3], padding=1, scope='conv_2d')
       
       
   def forward(self, input, class_id):
@@ -389,12 +385,12 @@ class Discriminator256(nn.Module):
 
       with self.scope('pre_conv'):
         self.pre_conv = nn.Sequential(
-          SpectralNorm(nn.Conv2d(3, 1 * chn, 3, padding=1, index=0)),
+          SNConv2d(3, 1 * chn, 3, padding=1, index=0),
           nn.ReLU(),
-          SpectralNorm(nn.Conv2d(1 * chn, 1 * chn, 3, padding=1, index=1)),
+          SNConv2d(1 * chn, 1 * chn, 3, padding=1, index=1),
           nn.AvgPool2d(2),
         )
-      self.pre_skip = SpectralNorm(nn.Conv2d(3, 1 * chn, 1, scope='pre_skip'))
+      self.pre_skip = SNConv2d(3, 1 * chn, 1, scope='pre_skip')
 
       with self.scope('conv'):
         self.conv = nn.Sequential(
@@ -408,12 +404,11 @@ class Discriminator256(nn.Module):
           conv(16 * chn, 16 * chn, downsample=False, index=6),
         )
 
-      self.linear = SpectralNorm(nn.Linear(16 * chn, 1, scope='linear'))
+      self.linear = SNLinear(16 * chn, 1, scope='linear')
 
-      self.embed = nn.Embedding(n_class, 16 * chn, scope='embed')
-      #self.embed.weight.data.uniform_(-0.1, 0.1) # TODO
-      nn.uniform_(self.embed.weight, -0.1, 0.1)
-      self.embed = SpectralNorm(self.embed)
+      self.embed = SNEmbedding(n_class, 16 * chn, scope='embed')
+      with self.embed.scope():
+        nn.uniform_(self.embed.weight, -0.1, 0.1)
 
   def forward(self, input, class_id):
     with self.scope():
@@ -449,7 +444,7 @@ class Generator512(nn.Module):
       self.first_view = 16 * chn
 
       with self.scope('G_Z'):
-        self.G_linear = SpectralNorm(nn.Linear(16, 4 * 4 * 16 * chn, scope="G_linear"))
+        self.G_linear = SNLinear(16, 4 * 4 * 16 * chn, scope="G_linear")
 
       z_dim = dim_z + 16
 
@@ -468,7 +463,7 @@ class Generator512(nn.Module):
       self.num_split = len(self.blocks)
 
       self.ScaledCrossReplicaBN = ScaledCrossReplicaBN(1 * chn, eps=1e-4)
-      self.colorize = SpectralNorm(nn.Conv2d(1 * chn, 3, [3, 3], padding=1, scope='conv_2d'))
+      self.colorize = SNConv2d(1 * chn, 3, [3, 3], padding=1, scope='conv_2d')
       
       
 
@@ -512,12 +507,12 @@ class Discriminator512(nn.Module):
 
       with self.scope('pre_conv'):
         self.pre_conv = nn.Sequential(
-          SpectralNorm(nn.Conv2d(3, 1 * chn, 3, padding=1, index=0)),
+          SNConv2d(3, 1 * chn, 3, padding=1, index=0),
           nn.ReLU(),
-          SpectralNorm(nn.Conv2d(1 * chn, 1 * chn, 3, padding=1, index=1)),
+          SNConv2d(1 * chn, 1 * chn, 3, padding=1, index=1),
           nn.AvgPool2d(2),
         )
-      self.pre_skip = SpectralNorm(nn.Conv2d(3, 1 * chn, 1, scope='pre_skip'))
+      self.pre_skip = SNConv2d(3, 1 * chn, 1, scope='pre_skip')
 
       with self.scope('conv'):
         self.conv = nn.Sequential(
@@ -532,12 +527,11 @@ class Discriminator512(nn.Module):
           conv(16 * chn, 16 * chn, downsample=False, index=7),
         )
 
-      self.linear = SpectralNorm(nn.Linear(16 * chn, 1, scope='linear'))
+      self.linear = SNConv2d(16 * chn, 1, scope='linear')
 
-      self.embed = nn.Embedding(n_class, 16 * chn, scope='embed')
-      #self.embed.weight.data.uniform_(-0.1, 0.1) # TODO
-      nn.uniform_(self.embed.weight, -0.1, 0.1)
-      self.embed = SpectralNorm(self.embed)
+      self.embed = SNEmbedding(n_class, 16 * chn, scope='embed')
+      with self.embed.scope():
+        nn.uniform_(self.embed.weight, -0.1, 0.1)
 
 
   def forward(self, input, class_id):
@@ -800,6 +794,139 @@ shapelist = nn.shapelist
 def l2normalize(v, eps=1e-4):
   return v / (nn.norm(v) + eps)
 
+# Projection of x onto y
+def proj(x, y):
+  return nn.matmul(y, nn.t(x)) * y / nn.matmul(y, nn.t(y))
+
+
+# Orthogonalize x wrt list of vectors ys
+def gram_schmidt(x, ys):
+  for y in ys:
+    x = x - proj(x, y)
+  return x
+
+def normalize(v, eps=1e-4):
+  return v / tf.maximum(nn.norm(v), eps)
+
+# Apply num_itrs steps of the power method to estimate top N singular values.
+def power_iteration(W, u_, update=True, eps=1e-12):
+  # Lists holding singular vectors and values
+  us, vs, svs = [], [], []
+  for i, u in enumerate(u_):
+    # Run one step of the power iteration
+    #with torch.no_grad():
+    if True:
+      u = nn.view(u, 1, -1)
+      v = nn.matmul(u, W)
+      # Run Gram-Schmidt to subtract components of all other singular vectors
+      v = normalize(gram_schmidt(v, vs), eps=eps)
+      # Add to the list
+      vs += [v]
+      # Update the other singular vector
+      u = nn.matmul(v, nn.t(W))
+      # Run Gram-Schmidt to subtract components of all other singular vectors
+      u = normalize(gram_schmidt(u, us), eps=eps)
+      u = tf.stop_gradient(u)
+      if update:
+        with tf.control_dependencies([u_[i].assign(nn.view(u, *nn.size(u_[i])), read_value=False)]):
+          u = tf.identity(u)
+      # Add to the list
+      us += [u]
+    # Compute this singular value and add it to the list
+    svs += [nn.squeeze(nn.matmul(nn.matmul(v, nn.t(W)), nn.t(u)))]
+    #svs += [torch.sum(F.linear(u, W.transpose(0, 1)) * v)]
+  return svs, us, vs
+
+
+# Spectral normalization base class 
+class SN(object):
+  def __init__(self, num_svs, num_itrs, num_outputs, transpose=False, eps=1e-12):
+    with self.scope():
+      # Number of power iterations per step
+      self.num_itrs = num_itrs
+      # Number of singular values
+      self.num_svs = num_svs
+      # Transposed?
+      self.transpose = transpose
+      # Epsilon value for avoiding divide-by-0
+      self.eps = eps
+      # Register a singular vector for each sv
+      for i in range(self.num_svs):
+        self.register_buffer('u%d' % i, lambda: nn.randn(1, num_outputs))
+        self.register_buffer('sv%d' % i, lambda: nn.ones(1))
+  
+  # Singular vectors (u side)
+  @property
+  def u(self):
+    return [getattr(self, 'u%d' % i) for i in range(self.num_svs)]
+
+  # Singular values; 
+  # note that these buffers are just for logging and are not used in training. 
+  @property
+  def sv(self):
+   return [getattr(self, 'sv%d' % i) for i in range(self.num_svs)]
+   
+  # Compute the spectrally-normalized weight
+  def W_(self):
+    with self.scope():
+      W_mat = nn.view(self.weight, nn.size(self.weight, 0), -1)
+      if self.transpose:
+        W_mat = nn.t(W_mat)
+      # Apply num_itrs power iterations
+      for _ in range(self.num_itrs):
+        svs, us, vs = power_iteration(W_mat, self.u, update=self.training, eps=self.eps) 
+      # Update the svs
+      if self.training:
+        #with torch.no_grad(): # Make sure to do this in a no_grad() context or you'll get memory leaks!
+        if True:
+          for i, sv in enumerate(svs):
+            #self.sv[i][:] = sv     
+            with tf.control_dependencies([self.sv[i].assign(nn.view(sv, *nn.size(self.sv[i])), read_value=False)]):
+              svs[i] = tf.identity(sv)
+      return self.weight / svs[0]
+
+
+# 2D Conv layer with spectral norm
+class SNConv2d(nn.Conv2d, SN):
+  def __init__(self, in_channels, out_channels, kernel_size, stride=1,
+             padding=0, dilation=1, transposed=False, groups=1, bias=True, 
+             num_svs=1, num_itrs=1, eps=1e-12, scope='conv2d', **kws):
+    nn.Conv2d.__init__(self, in_channels, out_channels, kernel_size, stride, 
+                     padding, dilation, transposed, groups, bias, scope=scope, **kws)
+    SN.__init__(self, num_svs, num_itrs, out_channels, eps=eps)    
+  def forward(self, x):
+    return nn.conv2d(x, self.W_(), self.bias, self.stride, 
+                    self.padding, self.dilation, self.groups)
+
+
+# Linear layer with spectral norm
+class SNLinear(nn.Linear, SN):
+  def __init__(self, in_features, out_features, bias=True,
+               num_svs=1, num_itrs=1, eps=1e-12, scope='linear', **kws):
+    nn.Linear.__init__(self, in_features, out_features, bias, scope=scope, **kws)
+    SN.__init__(self, num_svs, num_itrs, out_features, eps=eps)
+  def forward(self, x):
+    return nn.linear(x, self.W_(), self.bias)
+
+
+# Embedding layer with spectral norm
+# We use num_embeddings as the dim instead of embedding_dim here
+# for convenience sake
+class SNEmbedding(nn.Embedding, SN):
+  def __init__(self, num_embeddings, embedding_dim, padding_idx=None, 
+               max_norm=None, norm_type=2, scale_grad_by_freq=False,
+               sparse=False, _weight=None,
+               num_svs=1, num_itrs=1, eps=1e-12, scope='embed', **kws):
+    nn.Embedding.__init__(self, num_embeddings, embedding_dim, #padding_idx,
+                          max_norm, #norm_type, scale_grad_by_freq, 
+                          #sparse, _weight,
+                          scope=scope, **kws)
+    SN.__init__(self, num_svs, num_itrs, num_embeddings, eps=eps)
+  def forward(self, x):
+    return nn.embedding(x, self.W_())
+
+
+
 
 class SpectralNorm(nn.Module):
   def __init__(self, module, name='weight', power_iterations=1, epsilon=9.999999747378752e-05, scope=None, **kwargs):
@@ -835,7 +962,9 @@ class SpectralNorm(nn.Module):
 
       ushape = [height]
       self.u = self.module.localvar('u', dtype=w.dtype, shape=ushape)
+      self.sv = self.module.localvar('sv', dtype=w.dtype, shape=[])
       nn.init_(self.u, lambda: l2normalize(nn.normal(ushape, 0, 1)))
+      nn.ones_(self.sv)
   
   def _update(self):
     u = self.u
@@ -845,7 +974,7 @@ class SpectralNorm(nn.Module):
     height = nn.size(w, 0)
     _w = nn.view(w, height, -1)
 
-    if self.should_update():
+    if self.module.should_update():
       assert nn.dim(u) == 1
       u = tf.expand_dims(u, -1)
       for _ in range(self.power_iterations):
@@ -889,6 +1018,8 @@ class SpectralNorm_Passthru(nn.Module):
     # with self.module.scope():
     #   self._update()
     return self.module.forward(*args)
+
+SpectralNorm = SpectralNorm_Passthru
 
 class SpectralNorm_Old(nn.Module):
   def __init__(self, module, name='weight', epsilon=9.999999747378752e-05, scope=None, **kwargs):
