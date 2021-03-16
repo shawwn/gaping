@@ -1504,7 +1504,7 @@ class GAN(nn.Module):
   def __init__(self, gan=BigGAN256, scope='', **kwargs):
     super().__init__(scope=scope, **kwargs)
     with self.scope():
-      self.gan = gan(disc=True)
+      self.gan = gan(disc=True, use_ema=False)
 
 
 
