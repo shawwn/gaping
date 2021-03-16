@@ -467,17 +467,20 @@ class Adam(Optimizer):
 
 
 from tensorflow.python.training import slot_creator
+from tensorflow.python.framework import ops
 
 def create_slot(primary, slot_name, val=None, shape=None, dtype=None, validate_shape=False):
-  with nn.absolute_variable_scope('', reuse=tf.AUTO_REUSE):
+  with nn.absolute_variable_scope('', reuse=tf.AUTO_REUSE), ops.init_scope():
     slot_name = primary.name.rsplit(':', 1)[0] + '__{}_slot'.format(slot_name)
     if dtype is None:
       dtype = primary.dtype
     if shape is None:
       shape = primary.shape
     if val is None:
-      val = tf.zeros(shape, dtype=dtype)
+      #val = tf.zeros(shape, dtype=dtype)
+      val = tf.initializers.zeros
     else:
+      raise NotImplementedError()
       val = tf.convert_to_tensor(val, dtype)
     return slot_creator._create_slot_var( primary, val, slot_name, validate_shape, shape, dtype )
 
