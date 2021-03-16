@@ -32,10 +32,21 @@ options.custom = """
 
 from .datasets import ms_celeb_1m
 from .util import EasyDict
+from . import tf_tools as tft
 
-dataset = ms_celeb_1m.MSCeleb1M(batch_size=options.batch_size)
+celeb = ms_celeb_1m.MSCeleb1M(batch_size=None)
 
-it = dataset.batched.make_initializable_iterator()
+def parse(features):
+  features = EasyDict(features)
+  image = tft.transform_image(features.image_data)
+  image = tft.transform_image(image, [256, 256, 3], crop_method='resize_with_pad')
+  image = image * 2.0 - 1.0
+  return EasyDict(image=image, label=features.label)
+
+dataset = celeb.features.map(parse)
+dataset = celeb.batch(dataset, options.batch_size)
+
+it = dataset.make_initializable_iterator()
 print('Initializing dataset...')
 it.initializer.run()
 
