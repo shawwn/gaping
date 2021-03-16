@@ -14,7 +14,7 @@ def get_bucket(bucket=None):
   return 'gs://' + bucket.replace('gs://', '').strip('/') + '/'
 
 class MSCeleb1M:
-    def __init__(self, batch_size=4096*16, repeat=True, bucket=None, aligned=True):
+    def __init__(self, batch_size=None, repeat=True, bucket=None, aligned=True):
       self.bucket = get_bucket(bucket)
       if aligned:
         self.path = 'data/MS-Celeb-1M/data/aligned_face_images/FaceImageCroppedWithAlignment.tsv'
@@ -46,7 +46,9 @@ class MSCeleb1M:
         lines = lines.repeat()
       parsed = self.map(lines, self.parse)
       processed = self.map(parsed, self.process)
-      batched = self.batch(processed, batch_size)
+      batched = None
+      if batch_size is not None:
+        batched = self.batch(processed, batch_size)
       return lines, parsed, processed, batched
 
     def parse(self, line):
