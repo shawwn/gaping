@@ -17,11 +17,14 @@ from tensorflow.python.tpu import tpu as tpu_lib
 
 
 
-def after(op, then):
+def after(op, then, pass_arg=False):
   op = [op] if not isinstance(op, (list, tuple)) else op
   with tf.control_dependencies(op):
     #return tf.identity(then())
-    return then()
+    if pass_arg:
+      return then(op)
+    else:
+      return then()
 
 
 def count_tpu_cores(session=None):
@@ -257,6 +260,10 @@ def label_image_grid(labels, images):
 def readbytes(filename):
   with tf.io.gfile.GFile(filename, 'rb') as f:
     return f.read()
+
+def writebytes(filename, data):
+  with tf.io.gfile.GFile(filename, 'wb') as f:
+    return f.write(data)
 
 
 from tensorflow.python.tpu import tpu_function
