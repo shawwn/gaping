@@ -2674,10 +2674,15 @@ def normal_(tensor, mean, std, dtype=None):
   init_(tensor, value)
 
 
+def truncated_normal(shape, mean, std, dtype=None):
+  if dtype is None:
+    dtype = tf.float32
+  return tf.random.truncated_normal(shape=shape, mean=mean, stddev=std, dtype=dtype)
+
 def truncated_normal_(tensor, mean, std):
   # need to create value in a lambda due to creating variables in while
   # loops on tensorflow
-  value = lambda: tf.random.truncated_normal(shape=tensor.shape, mean=mean, stddev=std)
+  value = lambda: truncated_normal(shape=tensor.shape, mean=mean, stddev=std, dtype=dtype)
   init_(tensor, value)
 
 
