@@ -272,7 +272,10 @@ def tf_array_push(ta, value, *, flow=None, handle=None):
   index = tf_array_size(ta, flow=flow, handle=handle)
   return tf_array_write(ta, index=index, value=value, flow=flow, handle=handle)
 
-def tf_len(x):
+def tf_as(x, dtype=None):
+  return tf.convert_to_tensor(x, dtype=tf_dtype(dtype))
+
+def tf_len(x, dtype=None):
   if isinstance(x, tf.TensorArray):
     x = tf_array_size(x)
     x = tf_i64(x)
@@ -287,7 +290,7 @@ def tf_len(x):
 
 def tf_len32(x):
   x = tf_len(x)
-  x = tf_i32(x)
+  x = tf_as(x, tf.int32)
   return x
 
 @functools.wraps(tf.convert_to_tensor)
