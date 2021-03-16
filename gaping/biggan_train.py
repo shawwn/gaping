@@ -41,9 +41,10 @@ from . import wrapper
 
 
 def main(opts):
-  globals()['opts'] = opts
+  globals()['options'] = opts
 
-  util.run_code(opts.code, 'gin_script.py', globals(), globals())
+  util.run_code(opts.startup, 'gin_script.py', globals(), globals())
+  util.run_code(opts.custom, 'gin_script.py', globals(), globals())
   
 
   assert False

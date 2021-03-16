@@ -1,4 +1,44 @@
 include './common.gin'
 
-options.foo = 42
+options.batch_size = 256
+options.num_G_accumulations = 8
+options.num_D_accumulations = 8
+options.num_D_steps = 1
+options.num_D_steps = 1
+options.G_lr = 1e-4
+options.D_lr = 4e-4
+options.D_B2 = 0.999
+options.G_B2 = 0.999
+options.G_attn = 64
+options.D_attn = 64
+options.SN_eps = 1e-6
+options.BN_eps = 1e-5
+options.adam_eps = 1e-6
+options.G_ortho = 0.0
+options.G_shared = True
+options.G_init = 'ortho'
+options.D_init = 'ortho'
+options.hier = True
+options.dim_z = 120
+options.shared_dim = 128
+options.G_ch = 96
+options.D_ch = 96
+options.use_ema = True
+options.ema_start = 20000
+options.save_every = 1000
+options.seed = 0
 
+options.custom = """
+
+from .datasets import ms_celeb_1m
+from .util import EasyDict
+
+dataset = ms_celeb_1m.MSCeleb1M(batch_size=options.batch_size)
+
+it = dataset.batched.make_initializable_iterator()
+print('Initializing dataset...')
+it.initializer.run()
+
+nxt = EasyDict(it.get_next())
+
+"""
