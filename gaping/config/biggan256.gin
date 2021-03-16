@@ -33,6 +33,7 @@ options.custom = """
 from .datasets import ms_celeb_1m
 from .util import EasyDict
 from . import tf_tools as tft
+from . import tftorch as nn
 
 celeb = ms_celeb_1m.MSCeleb1M(batch_size=None)
 
@@ -41,6 +42,7 @@ def parse(features):
   image = tft.transform_image(features.image_data)
   image = tft.transform_image(image, [256, 256, 3], crop_method='resize_with_pad')
   image = image * 2.0 - 1.0
+  image = nn.permute(image, 2, 0, 1) # HWC to CHW
   return EasyDict(image=image, label=features.label)
 
 dataset = celeb.features.map(parse)

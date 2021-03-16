@@ -113,16 +113,15 @@ class G_D(nn.Module):
 class TrainGAN(biggan.GAN):
   def __init__(self, options, features):
     super().__init__()
+    self.global_step = tf.train.get_or_create_global_step()
     self.GD = G_D(self.gan.generator, self.gan.discriminator)
     self.G_optim = optimizer.SGD(self.gan.generator.parameters(), lr=options.G_lr)
     self.D_optim = optimizer.SGD(self.gan.discriminator.parameters(), lr=options.D_lr)
 
-    self.train_op = tf.tpu.batch_parallel(
-        lambda image: self.model_step({'image': image}),
-        inputs=[features.image],
-        num_shards=1,
-        device_assignment=driver_lib.get().device_assignment([0]),
-        )[0]
+    self.train_op = tf.tpu.batch_parallel( lambda image: self.model_step({'image': image}), inputs=[features.image], num_shards=1, device_assignment=driver_lib.get().device_assignment([0]),)
+    import pdb; pdb.set_trace()
+    foo = 42
+
 
   @property
   def num_classes(self):
@@ -146,63 +145,82 @@ class TrainGAN(biggan.GAN):
   def model_fn(self, features, *args):
     features = EasyDict(features)
 
-    # Zero G's gradients by default before training G, for safety
-    with tf.control_dependencies(self.G_optim.zero_grad()):
+    D_losses = tf.TensorArray(tf.float32, options.num_D_accumulations, element_shape=[])
+    G_losses = tf.TensorArray(tf.float32, options.num_G_accumulations, element_shape=[])
+
+    with tf.control_dependencies(self.G_optim.zero_grad() + self.D_optim.zero_grad()):
 
       # If accumulating gradients, loop multiple times before an optimizer step
+      def train_D_body(accumulation_index, D_losses):
+        i = accumulation_index
+        z = self.sample_z()
+        y = self.sample_y()
+        x = stop(tf.expand_dims(features.image[i], 0))
+        D_fake, D_real = self.GD(z, y, x, y, train_G=False)
 
+        # Compute components of D's loss, average them, and divide by 
+        # the number of gradient accumulations
+        D_loss_real, D_loss_fake = discriminator_loss(D_fake, D_real)
+        D_loss = (D_loss_real + D_loss_fake) / float(options['num_D_accumulations'])
+        with tf.control_dependencies(self.D_optim.backward(D_loss)):
+          return [accumulation_index + 1, D_losses.write(accumulation_index, D_loss)]
+      _, D_losses = for_(options.num_D_accumulations, train_D_body, D_losses)
+      D_losses = D_losses.stack()
+      ops = [_, D_losses]
+
+    with tf.control_dependencies(ops):
+      ops = self.D_optim.step()
+
+    # Zero G's gradients by default before training G, for safety
+    with tf.control_dependencies(self.G_optim.zero_grad()):
       
       # If accumulating gradients, loop multiple times
-      if True:
-        def train_G_body(accumulation_index):
-          z = self.sample_z()
-          y = self.sample_y()
-          D_fake = self.gan.generator(z, y)
-          G_loss = generator_loss(D_fake) / float(options.num_G_accumulations)
-          with tf.control_dependencies(self.G_optim.backward(G_loss)):
-            return accumulation_index + 1
-        op = for_(options.num_G_accumulations, train_G_body)
-        ops = [op]
-      else:
-        ops = []
-        for accumulation_index in range(options.num_G_accumulations):
-          with tf.control_dependencies(ops):
-            z = self.sample_z()
-            y = self.sample_y()
-            D_fake = self.GD(z, y, train_G=True)
-            G_loss = generator_loss(D_fake) / float(options.num_G_accumulations)
-            ops.extend(self.G_optim.backward(G_loss))
+      def train_G_body(accumulation_index, G_losses):
+        z = self.sample_z()
+        y = self.sample_y()
+        D_fake = self.GD(z, y, train_G=True)
+        G_loss = generator_loss(D_fake) / float(options.num_G_accumulations)
+        with tf.control_dependencies(self.G_optim.backward(G_loss)):
+          return [accumulation_index + 1, G_losses.write(accumulation_index, G_loss)]
+      _, G_losses = for_(options.num_G_accumulations, train_G_body, G_losses)
+      G_losses = G_losses.stack()
+      ops = [_, G_losses]
 
     with tf.control_dependencies(ops):
       ops = self.G_optim.step()
 
     with tf.control_dependencies(ops):
-      return tf.no_op()
+      return {'D_losses': D_losses, 'G_losses': G_losses}
 
   def model_step(self, features):
-    return self.model_fn(features)
+    self.output_structure = self.model_fn(features)
+    return tf.nest.flatten(self.output_structure)
 
   def run(self, op):
     driver = driver_lib.get()
     return driver.session.run(op)
 
   def fit(self):
+    # print('Initializing TPU...')
+    # self.run(tf.tpu.initialize_system())
     print('Initializing...')
-    #self.run(self.gan.initializer)
+    self.run(self.gan.initializer)
+    self.global_step.load(0)
 
-    gs = tf.train.get_or_create_global_step()
+    print('Fetching step number...')
+    i = self.global_step.eval()
 
-    i = gs.initialized_value().eval()
+
     print('Training from step {}...'.format(i))
     while True:
-      result = self.run(self.train_op)
-      print(
-          'Step {}'.format(i),
-          self.GD.G.ScaledCrossReplicaBN.bn.num_batches_tracked.eval(),
-          self.GD.G.ScaledCrossReplicaBN.bn.running_mean.eval(),
-          )
+      D_loss, G_loss = self.run(self.train_op)
+      print('Step {}'.format(i))
+      print('G_loss', G_loss)
+      print('D_loss', D_loss)
+      print(self.GD.G.ScaledCrossReplicaBN.bn.num_batches_tracked.eval())
+      print(self.GD.G.ScaledCrossReplicaBN.bn.running_mean.eval())
       i += 1
-      gs.load(i)
+      self.global_step.load(i)
 
 def main(opts):
   globals()['options'] = opts
